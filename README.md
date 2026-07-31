@@ -83,53 +83,86 @@ The `<Navbar />` is a globally injected floating header in `App.jsx` that persis
 If you need help or wish to propose architectural changes to the repository, please reach out to **Akshit Sharma** at **akshitsharmacodes@gmail.com**. Pull Requests must be reviewed by Akshit before merging to the `main` branch.
 
 
-## System Architecture (HLD)
+## 🏗 System Architecture (HLD)
 
-`mermaid
+```mermaid
 graph TD
-    Client[React/Vite Frontend] -->|REST API| API[Django DRF Backend]
-    
-    subgraph Backend Infrastructure
-        API -->|Async Tasks| Celery[Celery Worker]
-        API -->|Read/Write| DB[(SQLite Database)]
-        Celery -->|Read/Write| DB
-        API -.->|Queue Message| Redis[(Redis Broker)]
-        Redis -.->|Fetch Message| Celery
-    end
-    
-    subgraph External APIs
-        Celery -->|Publish/Fetch| Social[Social Media APIs (X, Facebook, etc.)]
-        Celery -->|Generate Content| AI[AI Models (Gemini/OpenRouter)]
-    end
-`
+    %% Define Styles
+    classDef frontend fill:#61DAFB,stroke:#333,stroke-width:2px,color:black;
+    classDef backend fill:#092E20,stroke:#333,stroke-width:2px,color:white;
+    classDef async fill:#FF9900,stroke:#333,stroke-width:2px,color:black;
+    classDef ai fill:#9C27B0,stroke:#333,stroke-width:2px,color:white;
+    classDef db fill:#336791,stroke:#333,stroke-width:2px,color:white;
 
-## Low-Level Design (LLD)
+    subgraph "Frontend Client (React/Vite)"
+        UI["React UI Components"]:::frontend
+        State["React Context/Hooks"]:::frontend
+    end
 
-`mermaid
+    subgraph "Django Backend Core"
+        API["Django REST API"]:::backend
+        DB["SQLite Database"]:::db
+    end
+
+    subgraph "Asynchronous Workers"
+        Broker["Redis Message Broker"]:::async
+        Worker["Celery Worker"]:::async
+    end
+
+    subgraph "AI & External APIs"
+        Social["Social APIs (X, Facebook)"]:::ai
+        LLM["AI Models (Gemini/OpenRouter)"]:::ai
+    end
+
+    %% Data Flow
+    UI <-->|HTTP Requests| API
+    API <-->|CRUD Operations| DB
+    
+    API -.->|Enqueue Tasks| Broker
+    Broker -.->|Consume Tasks| Worker
+    Worker <-->|Publish/Fetch| Social
+    Worker <-->|Generate Content| LLM
+    Worker -->|Update Status| DB
+```
+
+## 🧩 Low-Level Design (LLD)
+
+```mermaid
 graph LR
-    subgraph Django Apps
-        DA[dashboard_api] -->|Auth/Data| WS[workspaces]
-        DA -->|Trigger Generation| ING[ingestion]
-        ING -->|Orchestrate| LG[langgraph_orchestrator]
-        LG -->|Format/Post| PR[platform_routing]
+    %% Define Styles
+    classDef app fill:#092E20,stroke:#333,stroke-width:2px,color:white;
+    classDef worker fill:#FF9900,stroke:#333,stroke-width:2px,color:black;
+
+    subgraph "Django Applications"
+        DA["dashboard_api"]:::app -->|Auth/Data| WS["workspaces"]:::app
+        DA -->|Trigger Gen| ING["ingestion"]:::app
+        ING -->|Orchestrate| LG["langgraph_orchestrator"]:::app
+        LG -->|Format/Post| PR["platform_routing"]:::app
     end
     
-    LG -->|Task Queue| CeleryWorker[Celery Task]
-    CeleryWorker -->|Process Content| API[External LLM API]
-`
+    LG -.->|Task Queue| CeleryWorker["Celery Tasks"]:::worker
+    CeleryWorker -.->|Process Content| API["External APIs"]:::worker
+```
 
-## Entity Relationship Diagram (ERD)
+## 🗄️ Entity Relationship Diagram (ERD)
 
-`mermaid
+```mermaid
 erDiagram
-    USER ||--o{ WORKSPACE : owns
+    USER ||--o{ WORKSPACE : "owns"
+    WORKSPACE ||--o{ PLATFORM_ACCOUNT : "contains"
+    WORKSPACE ||--o| BUSINESS_PROFILE : "has"
+    WORKSPACE ||--o{ CONTENT_SOURCE : "tracks"
+    CONTENT_SOURCE ||--o{ GENERATION_TASK : "triggers"
+    GENERATION_TASK ||--o{ GENERATED_POST : "creates"
+    GENERATED_POST ||--o{ POST_VARIATION : "has"
+    POST_VARIATION ||--o| GENERATED_IMAGE : "features"
+    POST_VARIATION ||--o| SOCIAL_POST : "published_as"
+
     USER {
         int id
         string username
         string email
     }
-    WORKSPACE ||--o{ PLATFORM_ACCOUNT : contains
-    WORKSPACE ||--o| BUSINESS_PROFILE : has
     WORKSPACE {
         int id
         string name
@@ -143,25 +176,19 @@ erDiagram
         int id
         string brand_voice
     }
-    WORKSPACE ||--o{ CONTENT_SOURCE : tracks
     CONTENT_SOURCE {
         int id
         string source_type
         string url
     }
-    CONTENT_SOURCE ||--o{ GENERATION_TASK : triggers
     GENERATION_TASK {
         int id
         string status
     }
-    GENERATION_TASK ||--o{ GENERATED_POST : creates
-    GENERATED_POST ||--o{ POST_VARIATION : has
     GENERATED_POST {
         int id
         string original_content
     }
-    POST_VARIATION ||--o| GENERATED_IMAGE : features
-    POST_VARIATION ||--o| SOCIAL_POST : published_as
     POST_VARIATION {
         int id
         string platform
@@ -172,4 +199,4 @@ erDiagram
         string platform_post_id
         string status
     }
-`
+```
