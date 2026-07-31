@@ -81,3 +81,95 @@ The `<Navbar />` is a globally injected floating header in `App.jsx` that persis
 ## Contributing & Support
 
 If you need help or wish to propose architectural changes to the repository, please reach out to **Akshit Sharma** at **akshitsharmacodes@gmail.com**. Pull Requests must be reviewed by Akshit before merging to the `main` branch.
+
+
+## System Architecture (HLD)
+
+`mermaid
+graph TD
+    Client[React/Vite Frontend] -->|REST API| API[Django DRF Backend]
+    
+    subgraph Backend Infrastructure
+        API -->|Async Tasks| Celery[Celery Worker]
+        API -->|Read/Write| DB[(SQLite Database)]
+        Celery -->|Read/Write| DB
+        API -.->|Queue Message| Redis[(Redis Broker)]
+        Redis -.->|Fetch Message| Celery
+    end
+    
+    subgraph External APIs
+        Celery -->|Publish/Fetch| Social[Social Media APIs (X, Facebook, etc.)]
+        Celery -->|Generate Content| AI[AI Models (Gemini/OpenRouter)]
+    end
+`
+
+## Low-Level Design (LLD)
+
+`mermaid
+graph LR
+    subgraph Django Apps
+        DA[dashboard_api] -->|Auth/Data| WS[workspaces]
+        DA -->|Trigger Generation| ING[ingestion]
+        ING -->|Orchestrate| LG[langgraph_orchestrator]
+        LG -->|Format/Post| PR[platform_routing]
+    end
+    
+    LG -->|Task Queue| CeleryWorker[Celery Task]
+    CeleryWorker -->|Process Content| API[External LLM API]
+`
+
+## Entity Relationship Diagram (ERD)
+
+`mermaid
+erDiagram
+    USER ||--o{ WORKSPACE : owns
+    USER {
+        int id
+        string username
+        string email
+    }
+    WORKSPACE ||--o{ PLATFORM_ACCOUNT : contains
+    WORKSPACE ||--o| BUSINESS_PROFILE : has
+    WORKSPACE {
+        int id
+        string name
+    }
+    PLATFORM_ACCOUNT {
+        int id
+        string platform
+        string access_token
+    }
+    BUSINESS_PROFILE {
+        int id
+        string brand_voice
+    }
+    WORKSPACE ||--o{ CONTENT_SOURCE : tracks
+    CONTENT_SOURCE {
+        int id
+        string source_type
+        string url
+    }
+    CONTENT_SOURCE ||--o{ GENERATION_TASK : triggers
+    GENERATION_TASK {
+        int id
+        string status
+    }
+    GENERATION_TASK ||--o{ GENERATED_POST : creates
+    GENERATED_POST ||--o{ POST_VARIATION : has
+    GENERATED_POST {
+        int id
+        string original_content
+    }
+    POST_VARIATION ||--o| GENERATED_IMAGE : features
+    POST_VARIATION ||--o| SOCIAL_POST : published_as
+    POST_VARIATION {
+        int id
+        string platform
+        string content
+    }
+    SOCIAL_POST {
+        int id
+        string platform_post_id
+        string status
+    }
+`
