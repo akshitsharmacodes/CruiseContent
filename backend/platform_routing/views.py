@@ -35,7 +35,7 @@ class PublishPostView(APIView):
         user = User.objects.first()
         
         if platform_account_id:
-            account = get_object_or_404(PlatformAccount, id=platform_account_id, workspace=user.workspace)
+            account = get_object_or_404(PlatformAccount, id=platform_account_id, workspace=user.current_workspace)
         else:
             # Map frontend string 'facebook' to DB enum 'FACEBOOK_PAGE'
             db_platform = platform.upper()
@@ -43,7 +43,7 @@ class PublishPostView(APIView):
                 db_platform = 'FACEBOOK_PAGE'
                 
             account = PlatformAccount.objects.filter(
-                workspace=user.workspace, 
+                workspace=user.current_workspace, 
                 platform=db_platform
             ).first()
             
@@ -89,6 +89,18 @@ class PublishPostView(APIView):
             },
             status=status.HTTP_202_ACCEPTED
         )
+
+class PublishPostStatusView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, post_id):
+        post = get_object_or_404(SocialPost, id=post_id)
+        return Response({
+            "status": post.status,
+            "error_message": post.error_message,
+            "platform_post_id": post.platform_post_id
+        })
+
 
 class FacebookLoginView(APIView):
     """
@@ -170,11 +182,11 @@ class FacebookCallbackView(APIView):
         # Find the user's workspace
         # Note: in real production we would get the user from `state` or request.user if session auth
         user = User.objects.get(id=state)
-        if not user.workspace:
+        if not user.current_workspace:
             from workspaces.models import Workspace
-            user.workspace = Workspace.objects.first()
+            user.current_workspace = Workspace.objects.first()
             user.save()
-        workspace = user.workspace
+        workspace = user.current_workspace
         
         account, created = PlatformAccount.objects.update_or_create(
             workspace=workspace,
@@ -231,7 +243,7 @@ class ConnectManualFacebookView(APIView):
             
         user = User.objects.first()
         account, created = PlatformAccount.objects.update_or_create(
-            workspace=user.workspace,
+            workspace=user.current_workspace,
             platform='FACEBOOK_PAGE',
             account_id=page_id,
             defaults={
@@ -253,7 +265,7 @@ class GetConnectedPlatformsView(APIView):
     
     def get(self, request):
         user = User.objects.first()
-        accounts = PlatformAccount.objects.filter(workspace=user.workspace)
+        accounts = PlatformAccount.objects.filter(workspace=user.current_workspace)
         data = []
         for acc in accounts:
             data.append({
@@ -290,7 +302,7 @@ class ConnectManualTwitterView(APIView):
         
         user = User.objects.first()
         account, created = PlatformAccount.objects.update_or_create(
-            workspace=user.workspace,
+            workspace=user.current_workspace,
             platform='TWITTER',
             # Using api_key as the account_id for unique identification here
             account_id=api_key,
@@ -378,13 +390,13 @@ class TwitterCallbackView(APIView):
             twitter_username = me.data.username
             
             user = User.objects.first()
-            if not user.workspace:
+            if not user.current_workspace:
                 from workspaces.models import Workspace
-                user.workspace = Workspace.objects.first()
+                user.current_workspace = Workspace.objects.first()
                 user.save()
                 
             account, created = PlatformAccount.objects.update_or_create(
-                workspace=user.workspace,
+                workspace=user.current_workspace,
                 platform='TWITTER',
                 account_id=twitter_id,
                 defaults={

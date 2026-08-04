@@ -1,11 +1,12 @@
 from django.urls import path
 from .views import (
-    PublishPostView, FacebookLoginView, FacebookCallbackView, ConnectManualFacebookView,
+    PublishPostView, PublishPostStatusView, FacebookLoginView, FacebookCallbackView, ConnectManualFacebookView,
     GetConnectedPlatformsView, ConnectManualTwitterView, TwitterLoginView, TwitterCallbackView
 )
 
 urlpatterns = [
     path('publish/', PublishPostView.as_view(), name='publish_post'),
+    path('publish/status/<uuid:post_id>/', PublishPostStatusView.as_view(), name='publish_post_status'),
     path('connected/', GetConnectedPlatformsView.as_view(), name='connected_platforms'),
     
     path('facebook/login/', FacebookLoginView.as_view(), name='facebook_login'),

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 export default function ReviewEditor({ platform, content, imageUrl, onUpdate, onPublish, onRegenerate }) {
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const handleRegenerate = async () => {
     if (!onRegenerate) return;
@@ -14,9 +15,21 @@ export default function ReviewEditor({ platform, content, imageUrl, onUpdate, on
       await onRegenerate(platform);
       toast.success(`${platform} content regenerated!`);
     } catch (e) {
-      // toast is already handled in the hook, or we can just catch and log
+      // toast is already handled in the hook
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!onPublish) return;
+    setIsPublishing(true);
+    try {
+      await onPublish(platform);
+    } catch (e) {
+      // Error handled by hook
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -51,10 +64,10 @@ export default function ReviewEditor({ platform, content, imageUrl, onUpdate, on
         <Textarea
           value={content}
           onChange={(e) => onUpdate(platform, e.target.value)}
-          className={`min-h-[200px] text-base resize-y w-full ${isRegenerating ? 'opacity-50 pointer-events-none' : ''}`}
-          disabled={isRegenerating}
+          className={`min-h-[200px] text-base resize-y w-full ${(isRegenerating || isPublishing) ? 'opacity-50 pointer-events-none' : ''}`}
+          disabled={isRegenerating || isPublishing}
         />
-        {isRegenerating && (
+        {(isRegenerating || isPublishing) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
@@ -67,18 +80,18 @@ export default function ReviewEditor({ platform, content, imageUrl, onUpdate, on
         variant="outline" 
         className="rounded-full" 
         onClick={handleRegenerate}
-        disabled={isRegenerating}
+        disabled={isRegenerating || isPublishing}
       >
         {isRegenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
         Regenerate
       </Button>
       <Button 
-        onClick={() => onPublish(platform)} 
+        onClick={handlePublish} 
         className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-        disabled={isRegenerating}
+        disabled={isRegenerating || isPublishing}
       >
-        <Send className="w-4 h-4 mr-2" />
-        Approve & Post
+        {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+        {isPublishing ? 'Publishing...' : 'Approve & Post'}
       </Button>
       </div>
     </div>

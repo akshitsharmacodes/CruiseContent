@@ -1,11 +1,17 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Ship, Activity, LogOut, Plus, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { Ship, Activity, LogOut, Plus, User as UserIcon, ArrowLeft, Settings, Crown } from 'lucide-react';
 import { motion, useScroll, useSpring } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import WorkspaceSwitcher from './WorkspaceSwitcher';
+
 
 export default function Navbar() {
+  const { user, tier, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 100,
@@ -49,7 +55,7 @@ export default function Navbar() {
                   <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
                 </Button>
              </Link>
-          ) : isLanding ? (
+          ) : !user ? (
             <>
               <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors text-foreground">
                 Log in
@@ -61,18 +67,34 @@ export default function Navbar() {
               </Link>
             </>
           ) : (
-            // Dashboard / App routes
+            // User is authenticated
             <>
+              <div className="w-[200px] hidden md:block">
+                <WorkspaceSwitcher />
+              </div>
+              
               <Link to="/dashboard">
                 <Button variant="outline" className="hidden sm:flex rounded-full h-9 px-4">
                   <Plus className="w-4 h-4 mr-2" /> Create Post
                 </Button>
               </Link>
-              <Link to="/profile" className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-foreground hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                <UserIcon className="w-4 h-4" />
-              </Link>
-              <Link to="/login" className="text-muted-foreground hover:text-destructive transition-colors ml-2">
-                <LogOut className="w-5 h-5" />
+
+              <Link to="/profile">
+                <motion.div 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="cursor-pointer"
+                >
+                  <Avatar className="h-9 w-9 border-2 border-primary/20 hover:border-primary/50 transition-all">
+                    <AvatarImage 
+                      src={user.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
+                      referrerPolicy="no-referrer"
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user.email?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </motion.div>
               </Link>
             </>
           )}

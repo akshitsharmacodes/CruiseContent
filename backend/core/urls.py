@@ -23,7 +23,9 @@ from ingestion.views import generate_post, poll_task
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/auth/', include('accounts.urls')),
     path('api/dashboard/', include('dashboard_api.urls')),
+    path('api/payments/', include('payments.urls')),
     path('api/', include('workspaces.urls')),
     path('api/ingestion/', include('ingestion.urls')),
     path('api/generate/', generate_post, name='generate_post'),

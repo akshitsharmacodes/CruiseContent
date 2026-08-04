@@ -11,27 +11,31 @@ class FacebookAdapter:
         self.access_token = access_token
         self.page_id = page_id
 
-    def publish(self, image_url: str, caption: str) -> str:
+    def publish(self, caption: str, image_path: str = None) -> str:
         """
         Publishes a photo with a caption directly to a Facebook Page.
         Returns the Facebook Post ID if successful.
         Raises an exception if it fails.
         """
-        if image_url:
+        if image_path:
             url = f"{self.GRAPH_URL}/{self.page_id}/photos"
             payload = {
-                "url": image_url,
                 "message": caption,
                 "access_token": self.access_token
             }
+            with open(image_path, 'rb') as img:
+                files = {
+                    "source": img
+                }
+                response = requests.post(url, data=payload, files=files)
         else:
             url = f"{self.GRAPH_URL}/{self.page_id}/feed"
             payload = {
                 "message": caption,
                 "access_token": self.access_token
             }
+            response = requests.post(url, data=payload)
         
-        response = requests.post(url, data=payload)
         response.raise_for_status()
         
         data = response.json()

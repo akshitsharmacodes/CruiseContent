@@ -6,14 +6,14 @@ class IsWorkspaceMember(permissions.BasePermission):
     Assumes the model has a `workspace` attribute.
     """
     def has_object_permission(self, request, view, obj):
-        if not hasattr(request.user, 'workspace') or not request.user.workspace:
+        if not hasattr(request.user, 'current_workspace') or not request.user.current_workspace:
             return False
         
         # If the object itself is a workspace, check if it's the user's workspace
         if hasattr(obj, 'open_ai_key'): # Naive check for Workspace model
-            return obj == request.user.workspace
+            return obj == request.user.current_workspace
             
-        return obj.workspace == request.user.workspace
+        return obj.workspace == request.user.current_workspace
 
 class HasWorkspaceAPIKey(permissions.BasePermission):
     """
@@ -23,6 +23,6 @@ class HasWorkspaceAPIKey(permissions.BasePermission):
         return bool(
             request.user and 
             request.user.is_authenticated and 
-            request.user.workspace and 
-            request.user.workspace.open_ai_key
+            request.user.current_workspace and 
+            request.user.current_workspace.open_ai_key
         )

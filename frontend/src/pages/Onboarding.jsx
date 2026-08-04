@@ -1,114 +1,171 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { toast } from 'sonner';
+import { useState, useContext } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Onboarding() {
+const Onboarding = () => {
+  const { user, accessToken } = useAuth();
   const navigate = useNavigate();
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    owner_name: '',
     business_name: '',
-    established_date: '',
-    opening_hours: '',
-    operational_procedures: '',
-    is_online_or_remote: false,
-    physical_location_type: '',
-    services_provided: ''
+    owner_name: '',
+    services_provided: '',
+    physical_location_type: 'Remote',
+    is_online_or_remote: true
   });
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckbox = (checked) => {
-    setFormData(prev => ({ ...prev, is_online_or_remote: checked }));
-  };
+  const handleNext = () => setStep(step + 1);
+  const handleBack = () => setStep(step - 1);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
     try {
-      await axios.post('http://localhost:8000/api/workspaces/profile/', formData);
-      toast.success('Business Profile created! You are ready to generate posts.');
-      navigate('/');
-    } catch (error) {
-      toast.error('Failed to save profile. Please try again.');
+      const response = await fetch('http://localhost:8000/api/onboard/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        console.error("Onboarding failed");
+      }
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 lg:p-12">
-      <Card className="w-full max-w-2xl shadow-none border-border">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">Tell us about your business</CardTitle>
-          <CardDescription className="text-muted-foreground text-base">
-            This context will be injected into our AI to ensure your generated posts perfectly match your brand's voice and operations.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none text-foreground">Owner Name</label>
-                <Input name="owner_name" value={formData.owner_name} onChange={handleChange} placeholder="Jane Doe" required className="bg-transparent" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md bg-card p-8 rounded-xl shadow-lg border border-border overflow-hidden">
+        <h2 className="text-2xl font-bold mb-2">Welcome to SofricAI</h2>
+        <p className="text-muted-foreground mb-8">Let's set up your business profile so our AI can learn about you.</p>
+        
+        <div className="flex mb-8">
+          <div className={`h-1 flex-1 rounded-l-full ${step >= 1 ? 'bg-primary' : 'bg-secondary'}`} />
+          <div className={`h-1 flex-1 mx-1 ${step >= 2 ? 'bg-primary' : 'bg-secondary'}`} />
+          <div className={`h-1 flex-1 rounded-r-full ${step >= 3 ? 'bg-primary' : 'bg-secondary'}`} />
+        </div>
+
+        <AnimatePresence mode="wait">
+          {step === 1 && (
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h3 className="text-lg font-semibold mb-4">The Basics</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="business_name">Business Name</Label>
+                  <Input 
+                    id="business_name" 
+                    name="business_name" 
+                    value={formData.business_name} 
+                    onChange={handleChange} 
+                    placeholder="e.g. Acme Corp" 
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="owner_name">Your Name</Label>
+                  <Input 
+                    id="owner_name" 
+                    name="owner_name" 
+                    value={formData.owner_name} 
+                    onChange={handleChange} 
+                    placeholder="John Doe" 
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none text-foreground">Business Name</label>
-                <Input name="business_name" value={formData.business_name} onChange={handleChange} placeholder="Acme Corp" required className="bg-transparent" />
+              <div className="mt-8 flex justify-end">
+                <Button onClick={handleNext} disabled={!formData.business_name}>Next Step</Button>
               </div>
-            </div>
+            </motion.div>
+          )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none text-foreground">Services Provided</label>
-              <Textarea name="services_provided" value={formData.services_provided} onChange={handleChange} placeholder="We specialize in architectural drafting, interior design..." required className="bg-transparent min-h-[100px]" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none text-foreground">Established Date</label>
-                <Input name="established_date" type="date" value={formData.established_date} onChange={handleChange} className="bg-transparent" />
+          {step === 2 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h3 className="text-lg font-semibold mb-4">Operations</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="services_provided">What services do you provide?</Label>
+                  <Textarea 
+                    id="services_provided" 
+                    name="services_provided" 
+                    value={formData.services_provided} 
+                    onChange={handleChange} 
+                    placeholder="e.g. We provide web design and digital marketing services." 
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="physical_location_type">Location Type</Label>
+                  <Input 
+                    id="physical_location_type" 
+                    name="physical_location_type" 
+                    value={formData.physical_location_type} 
+                    onChange={handleChange} 
+                    placeholder="e.g. Remote, Clinic, Office" 
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none text-foreground">Physical Location Type</label>
-                <Input name="physical_location_type" value={formData.physical_location_type} onChange={handleChange} placeholder="Clinic, Shop, Office, etc." className="bg-transparent" />
+              <div className="mt-8 flex justify-between">
+                <Button variant="outline" onClick={handleBack}>Back</Button>
+                <Button onClick={handleNext} disabled={!formData.services_provided}>Next Step</Button>
               </div>
-            </div>
+            </motion.div>
+          )}
 
-            <div className="flex items-center space-x-2 pt-2">
-              <Checkbox id="remote" checked={formData.is_online_or_remote} onCheckedChange={handleCheckbox} />
-              <label htmlFor="remote" className="text-sm font-medium leading-none">
-                We operate fully online / remotely.
-              </label>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none text-foreground">Opening Hours</label>
-              <Input name="opening_hours" value={formData.opening_hours} onChange={handleChange} placeholder="Mon-Fri: 9AM - 5PM, Sat-Sun: Closed" className="bg-transparent" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none text-foreground">Operational Procedures & Guidelines</label>
-              <Textarea name="operational_procedures" value={formData.operational_procedures} onChange={handleChange} placeholder="Any specific rules, booking procedures, or guidelines customers should know..." className="bg-transparent min-h-[100px]" />
-            </div>
-
-          </CardContent>
-          <CardFooter className="flex justify-end pt-4 border-t border-border">
-            <Button type="submit" disabled={loading} className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
-              {loading ? 'Saving...' : 'Complete Onboarding'}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h3 className="text-lg font-semibold mb-4">You're all set!</h3>
+              <p className="text-muted-foreground mb-6">
+                We will now create your first Workspace for <strong>{formData.business_name}</strong>.
+              </p>
+              <div className="mt-8 flex justify-between">
+                <Button variant="outline" onClick={handleBack}>Back</Button>
+                <Button onClick={handleSubmit} disabled={loading}>
+                  {loading ? 'Creating...' : 'Create Workspace'}
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
-}
+};
+
+export default Onboarding;

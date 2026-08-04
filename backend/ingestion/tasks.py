@@ -66,22 +66,52 @@ def process_generation(task_id, platforms):
         for platform in platforms:
             if not ai_service:
                 break
-            platform_instruction = f"Make this post optimized for {platform}. "
-            
             if platform.lower() == 'twitter':
-                platform_instruction += "Keep it under 280 characters and use 2-3 hashtags."
+                platform_instruction = (
+                    "TWITTER POST REQUIREMENTS:\n"
+                    "- Structure: [HOOK] -> [PUNCHY POINT] -> [2 HASHTAGS]\n"
+                    "- Max Length: 280 characters.\n"
+                    "- Rule: Keep it extremely brief."
+                )
             elif platform.lower() == 'instagram':
-                platform_instruction += "Make it visual-friendly, engaging, and use 5-10 hashtags."
+                platform_instruction = (
+                    "INSTAGRAM CAPTION REQUIREMENTS:\n"
+                    "- Structure: [ATTENTION GRABBER SENTENCE] -> [8 TRENDING HASHTAGS]\n"
+                    "- Length: Exactly ONE short sentence.\n"
+                    "- Rule: Designed for a photo. Do NOT write paragraphs."
+                )
             elif platform.lower() == 'facebook':
-                platform_instruction += "Make it conversational and encourage community engagement in the comments."
+                platform_instruction = (
+                    "FACEBOOK POST REQUIREMENTS:\n"
+                    "- Structure: [HOOK/INTRO] -> [BODY/COMMUNITY FOCUS] -> [CALL TO ACTION/ENGAGING QUESTION]\n"
+                    "- Length: At least 3 long paragraphs.\n"
+                    "- Rule: Focus heavily on driving community discussion."
+                )
+            else:
+                platform_instruction = f"Make this post optimized for {platform}."
 
             system_prompt = (
-                f"You are acting as a professional {classification.get('persona', 'Social Media Manager')}. "
-                f"Your primary goal is {classification.get('goal', 'Brand Awareness')}. "
-                f"Keep the tone {classification.get('tone', 'Engaging')} and use a {classification.get('format', 'Direct')} format. "
-                f"You will generate content for a business with the following profile context:\n{context}\n\nCRITICAL INSTRUCTION: Do NOT use any emojis in your response. Emojis are strictly forbidden.\n\n{platform_instruction}"
+                f"You are a professional {classification.get('persona', 'Social Media Manager')}. "
+                f"Goal: {classification.get('goal', 'Brand Awareness')}. "
+                f"Tone: {classification.get('tone', 'Engaging')}. "
+                f"Format: {classification.get('format', 'Direct')}.\n\n"
+                f"Business Context (Use ONLY if relevant):\n{context}\n\n"
+                f"TARGET PLATFORM: {platform.upper()}\n"
+                f"You must strictly follow the format for this specific platform.\n\n"
+                f"OUTPUT FORMATTING:\n"
+                f"Start your response directly with the content. Do not include introductory or concluding remarks (e.g., no 'Here is your post:').\n"
+                f"Follow the structural templates provided in the platform rules exactly.\n\n"
+                f"CRITICAL RULES:\n"
+                f"1. Use ONLY facts, names, and events explicitly provided in the Source Content. Maintain strict factual accuracy.\n"
+                f"2. Use plain text exclusively. You must write without any emojis or icons.\n"
+                f"3. Output strictly the final post text. Begin immediately with the content and stop when finished.\n"
+                f"4. Output MUST be strictly in English. Do NOT use Chinese or any other language."
             )
-            user_prompt = f"Analyze the following text content and summarize it into a high-quality social media post:\n\n{task.input_data}"
+            user_prompt = (
+                f"--- SOURCE CONTENT ---\n{task.input_data}\n\n"
+                f"--- PLATFORM RULES FOR {platform.upper()} ---\n{platform_instruction}\n\n"
+                f"Based ONLY on the Source Content provided above, generate the social media post for {platform.upper()} strictly following the Platform Rules. Start directly with the content."
+            )
             
             try:
                 generated_text = ai_service.generate_text(system_prompt, user_prompt)
@@ -96,7 +126,7 @@ def process_generation(task_id, platforms):
         
         # Ensure we have a valid workspace for the image
         from workspaces.models import Workspace
-        target_workspace = (user.workspace if user and hasattr(user, 'workspace') else None) or Workspace.objects.first()
+        target_workspace = (user.current_workspace if user and hasattr(user, 'current_workspace') else None) or Workspace.objects.first()
 
         # Check if the user opted out of image generation
         if not task.generate_image:

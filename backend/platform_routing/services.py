@@ -32,7 +32,7 @@ class GeminiService(BaseAIService):
 
     def generate_text(self, system_prompt: str, user_prompt: str) -> str:
         import time
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
         combined_prompt = f"System Instruction:\n{system_prompt}\n\nUser Request:\n{user_prompt}"
 
         headers = {
@@ -130,23 +130,88 @@ class OpenRouterService(BaseAIService):
         }
         
         payload = {
-            "model": "google/gemma-4-31b-it:free",
+            "model": "meta-llama/llama-3-8b-instruct:free",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ]
         }
         
-        max_retries = 8
+        max_retries = 3
         for attempt in range(max_retries):
             response = requests.post(url, headers=headers, json=payload, timeout=60)
             if response.status_code == 429 and attempt < max_retries - 1:
-                time.sleep(20 * (attempt + 1))
+                time.sleep(5 * (attempt + 1))
                 continue
             response.raise_for_status()
             
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
+
+    def classify_intent(self, user_input: str, business_context: str) -> dict:
+        import json
+        system_prompt = (
+            "You are a classification engine. You must output STRICTLY valid JSON with no markdown formatting. "
+            "Extract the following from the user's input and business context: "
+            "'persona' (e.g. Dentist, Advocate, Tech Expert), "
+            "'goal' (e.g. Engagement, Conversion, Education), "
+            "'tone' (e.g. Professional, Casual, Urgent), "
+            "'format' (e.g. Storytelling, Q&A, Direct Pitch)."
+        )
+        user_prompt = f"Business Context: {business_context}\n\nUser Input: {user_input}"
+        
+        result_text = self.generate_text(system_prompt, user_prompt)
+        
+        try:
+            clean_text = result_text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+        except json.JSONDecodeError:
+            return {
+                "persona": "Social Media Manager",
+                "goal": "Brand Awareness",
+                "tone": "Engaging",
+                "format": "Standard Post"
+            }
+
+    def generate_image_prompt(self, post_text: str, user_prompt: str = None) -> str:
+        system_prompt = (
+            "You are an expert image prompt generator. Your task is to read a social media post "
+            "and an optional base image prompt from the user. You must create a single, highly detailed, "
+            "optimized prompt for an AI image generator (like Stable Diffusion) that captures the essence of the post "
+            "while strictly following the user's base prompt. Do not include conversational text, just the prompt."
+        )
+
+        user_content = f"Post: {post_text}"
+        if user_prompt:
+            user_content += f"\nUser's Base Prompt: {user_prompt}"
+            
+        return self.generate_text(system_prompt, user_content)
+
+    def generate_image(self, prompt: str) -> bytes:
+        import urllib.parse
+        encoded_prompt = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        return response.content
+
+
+class OllamaService(BaseAIService):
+    def __init__(self, model_name="qwen:4b"):
+        self.model_name = model_name
+        self.base_url = "http://localhost:11434/api/generate"
+
+    def generate_text(self, system_prompt: str, user_prompt: str) -> str:
+        payload = {
+            "model": self.model_name,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": False
+        }
+        response = requests.post(self.base_url, json=payload, timeout=120)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("response", "").strip()
 
     def classify_intent(self, user_input: str, business_context: str) -> dict:
         import json
@@ -203,4 +268,6 @@ class AIServiceFactory:
             return GeminiService()
         elif provider.lower() == "openrouter":
             return OpenRouterService()
+        elif provider.lower() == "ollama":
+            return OllamaService()
         raise ValueError(f"Unknown AI provider: {provider}")

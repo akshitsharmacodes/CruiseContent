@@ -14,7 +14,11 @@ class Workspace(models.Model):
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, null=True, blank=True, related_name="users")
+    
+    
+    # New fields
+    current_workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, blank=True, related_name="active_users")
+    workspaces = models.ManyToManyField(Workspace, related_name="users")
     
     def __str__(self):
         return self.email or self.username

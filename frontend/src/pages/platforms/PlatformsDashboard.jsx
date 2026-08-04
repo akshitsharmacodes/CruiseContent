@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Share2, MessageCircle, ImageIcon, ArrowLeft, Plus, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { FaFacebook } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { PageTransition } from '../../components/ui/PageTransition';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -13,7 +15,7 @@ const AVAILABLE_PLATFORMS = [
   {
     id: 'FACEBOOK_PAGE', // Keeps the backend ID for now, but represents Meta
     name: 'Meta (Facebook & Instagram)',
-    icon: Share2,
+    icon: FaFacebook,
     route: '/platforms/meta',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
@@ -22,10 +24,10 @@ const AVAILABLE_PLATFORMS = [
   {
     id: 'TWITTER',
     name: 'Twitter / X',
-    icon: MessageCircle,
+    icon: FaXTwitter,
     route: '/platforms/twitter',
-    color: 'text-sky-500',
-    bg: 'bg-sky-50',
+    color: 'text-slate-800 dark:text-slate-200',
+    bg: 'bg-slate-100 dark:bg-slate-800',
     description: 'Connect your developer app to Tweet generated content instantly.'
   }
 ];

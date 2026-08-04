@@ -67,14 +67,44 @@ export function useGenerationTask() {
 
   const publishContent = async (platform) => {
     try {
-      await axios.post('http://localhost:8000/api/platform/publish/', {
+      const response = await axios.post('http://localhost:8000/api/platform/publish/', {
         platform: platform,
-        content: generatedContent.texts ? generatedContent.texts[platform] : generatedContent[platform]
+        content: generatedContent.texts ? generatedContent.texts[platform] : generatedContent[platform],
+        image_url: generatedContent.image_url
       });
-      toast.success(`Successfully published to ${platform}!`);
+      
+      const postId = response.data.post_id;
+      
+      return new Promise((resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const statusRes = await axios.get(`http://localhost:8000/api/platform/publish/status/${postId}/`);
+            const postStatus = statusRes.data.status;
+            
+            if (postStatus === 'SUCCESS') {
+              clearInterval(interval);
+              toast.success(`Successfully published to ${platform}!`);
+              resolve();
+            } else if (postStatus === 'FAILED') {
+              clearInterval(interval);
+              const err = statusRes.data.error_message || 'Publish failed in background.';
+              toast.error(`Publish Error: ${err}`);
+              reject(new Error(err));
+            }
+            // If PENDING or PROCESSING, continue polling
+          } catch (e) {
+            clearInterval(interval);
+            const errMessage = e.response?.data?.error || e.message;
+            toast.error(`Publish Status Error: ${errMessage}`);
+            reject(e);
+          }
+        }, 2000);
+      });
+      
     } catch (error) {
       const errMessage = error.response?.data?.error || error.message;
       toast.error(`Publish Error: ${errMessage}`);
+      throw error;
     }
   };
 

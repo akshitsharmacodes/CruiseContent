@@ -7,21 +7,17 @@ from .models import Workspace, BusinessProfile
 from .serializers import WorkspaceSerializer, BusinessProfileSerializer
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
-    queryset = Workspace.objects.all().order_by('-created_at')
     serializer_class = WorkspaceSerializer
-    permission_classes = [permissions.AllowAny] # Open for first iteration
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.workspaces.all().order_by('-created_at')
 
 class BusinessProfileView(APIView):
-    permission_classes = [permissions.AllowAny] # Mock auth for now, in prod we'd use IsAuthenticated
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # MOCK: In production, we'd do request.user
-        # For now, we'll just get the first user in the DB, or create a mock user
-        from workspaces.models import User
-        user = User.objects.first()
-        if not user:
-            return Response({"error": "No users found in database"}, status=status.HTTP_404_NOT_FOUND)
-        
+        user = request.user
         try:
             profile = user.business_profile
             serializer = BusinessProfileSerializer(profile)
@@ -30,12 +26,7 @@ class BusinessProfileView(APIView):
             return Response({"detail": "Profile not found", "onboarding_required": True}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
-        from workspaces.models import User
-        user = User.objects.first()
-        if not user:
-            # Create a mock user if none exists so frontend works seamlessly
-            user = User.objects.create(username="mockuser", email="mock@example.com")
-        
+        user = request.user
         try:
             profile = user.business_profile
             serializer = BusinessProfileSerializer(profile, data=request.data, partial=True)
@@ -46,3 +37,43 @@ class BusinessProfileView(APIView):
             serializer.save(user=user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class OnboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        data = request.data
+        
+        business_name = data.get('business_name', 'My Business')
+        
+        # 1. Create BusinessProfile
+        profile_serializer = BusinessProfileSerializer(data=data)
+        if profile_serializer.is_valid():
+            profile_serializer.save(user=user)
+        else:
+            return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 2. Create Workspace
+        workspace = Workspace.objects.create(name=f"{business_name} Workspace")
+        
+        # 3. Link Workspace to User
+        user.current_workspace = workspace
+        user.save()
+        user.workspaces.add(workspace)
+        
+        return Response({"message": "Onboarding completed successfully!"}, status=status.HTTP_201_CREATED)
+
+class SwitchWorkspaceView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        workspace_id = request.data.get('workspace_id')
+        if not workspace_id:
+            return Response({"error": "workspace_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        workspace = get_object_or_404(Workspace, id=workspace_id, users=request.user)
+        request.user.current_workspace = workspace
+        request.user.save()
+        
+        return Response({"message": "Switched workspace successfully", "current_workspace_id": workspace.id})

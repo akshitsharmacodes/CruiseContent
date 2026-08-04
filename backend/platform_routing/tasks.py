@@ -34,9 +34,13 @@ def publish_to_instagram_task(self, post_id: str):
         # Step 3: Publish to Instagram
         logger.info(f"[Step 3] Publishing post {post.id} to Instagram via Adapter")
         
-        # We need the absolute URL of the image for Instagram Graph API to download it.
-        image_url = post.image.image.url
-        logger.info(f"  -> Using Image URL: {image_url}")
+        # We need a publicly accessible URL for Instagram Graph API to download it.
+        # Since localhost is not public, we reconstruct the pollinations.ai URL using the saved prompt.
+        import urllib.parse
+        encoded_prompt = urllib.parse.quote(post.image.prompt_used)
+        public_image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+        
+        logger.info(f"  -> Using Public Image URL: {public_image_url}")
         
         adapter = InstagramAdapter(
             access_token=account.access_token,
@@ -44,7 +48,7 @@ def publish_to_instagram_task(self, post_id: str):
         )
         
         logger.info("  -> Calling Instagram API to publish post...")
-        platform_post_id = adapter.publish(image_url=image_url, caption=post.content)
+        platform_post_id = adapter.publish(image_url=public_image_url, caption=post.content)
         logger.info(f"  -> Successfully published! Platform Post ID: {platform_post_id}")
         
         post.platform_post_id = platform_post_id
@@ -75,15 +79,15 @@ def publish_to_facebook_task(self, post_id: str):
         logger.info(f"[Step 1] Verifying workspace and AI service for post {post_id}")
         if not post.image:
             logger.info(f"[Step 2] No pre-generated image found for post {post.id}. Publishing text-only post.")
-            image_url = None
+            image_path = None
         else:
-            logger.info(f"[Step 2] Found existing pre-generated image for post {post.id}: {post.image.image.url}")
-            image_url = post.image.image.url
+            logger.info(f"[Step 2] Found existing pre-generated image for post {post.id}: {post.image.image.path}")
+            image_path = post.image.image.path
             
         # Step 3: Publish to Facebook
         logger.info(f"[Step 3] Publishing post {post.id} to Facebook via Adapter")
-        if image_url:
-            logger.info(f"  -> Using Image URL: {image_url}")
+        if image_path:
+            logger.info(f"  -> Using Image Path: {image_path}")
         
         adapter = FacebookAdapter(
             access_token=account.access_token,
@@ -91,7 +95,7 @@ def publish_to_facebook_task(self, post_id: str):
         )
         
         logger.info("  -> Calling Facebook API to publish post...")
-        platform_post_id = adapter.publish(image_url=image_url, caption=post.content)
+        platform_post_id = adapter.publish(caption=post.content, image_path=image_path)
         logger.info(f"  -> Successfully published! Platform Post ID: {platform_post_id}")
         
         post.platform_post_id = platform_post_id

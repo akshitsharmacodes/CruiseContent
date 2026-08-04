@@ -38,6 +38,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -52,11 +53,13 @@ INSTALLED_APPS = [
     'rest_framework',
     
     # Local apps
+    'accounts',
     'workspaces',
     'ingestion',
     'langgraph_orchestrator',
     'platform_routing',
     'dashboard_api',
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -153,8 +156,7 @@ CELERY_TASK_SERIALIZER = 'json'
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
+        'accounts.authentication.CustomJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -177,3 +179,9 @@ TWITTER_REDIRECT_URI = os.environ.get('TWITTER_REDIRECT_URI')
 
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 AI_PROVIDER = os.environ.get('AI_PROVIDER', 'gemini')
+
+# Google OAuth
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'django-insecure-development-jwt-key-change-me')

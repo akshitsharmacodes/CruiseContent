@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import GoogleSignIn from '@/components/GoogleSignIn';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -58,7 +59,19 @@ export default function Login() {
             <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               Sign In
             </Button>
-            <div className="text-sm text-center text-muted-foreground">
+            
+            <div className="relative w-full">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-700/50" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+            
+            <GoogleSignIn />
+
+            <div className="text-sm text-center text-muted-foreground pt-2">
               Don't have an account?{' '}
               <Link to="/signup" className="text-foreground underline underline-offset-4 hover:text-primary">
                 Sign up
