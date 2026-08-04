@@ -2,6 +2,21 @@
 
 CruiseContent is the ultimate AI-powered social media automation suite. Built by creators, for creators, it provides a centralized dashboard to generate and schedule intelligent social media content natively utilizing specialized AI models.
 
+## 🌟 What is CruiseContent?
+
+CruiseContent bridges the gap between raw ideas and published social media posts. It acts as your personal AI content team—ingesting content from various sources, generating tailored variations for different platforms, and handling the publishing lifecycle automatically.
+
+### Key Features
+- **Multi-Workspace Architecture**: Manage multiple brands, clients, or projects under a single user account. Each workspace maintains its own isolated AI configurations, social media connections, and generation history.
+- **Smart Content Ingestion**: Automatically ingest content via RSS feeds, Webhooks, or manual URL inputs to serve as the baseline for your AI generations.
+- **Platform-Native Formatting**: The AI understands the nuances of different platforms. It generates short-form punchy text for Twitter/X, visually descriptive captions for Instagram, and professional long-form content for LinkedIn—all from a single prompt.
+- **Integrated AI Workloads**: 
+  - **Text Generation**: Powered by advanced LLMs (Gemini / OpenRouter) to write high-converting copy.
+  - **Image Generation**: Automatically generate accompanying images based on the context of the generated text.
+- **Asynchronous Task Queue**: Heavy AI generation tasks and external API calls are handled entirely in the background via Celery and Redis, ensuring the frontend remains lightning-fast.
+- **Custom Authentication**: Highly secure JWT-based authentication system with HttpOnly refresh cookies and Google OAuth2 integration.
+- **Admin & Analytics Dashboard**: Built-in tiered access control and an administrative overview to track user life-cycles, payments, and system health.
+
 ## 🏗 System Architecture (HLD)
 
 The platform is designed with a decoupled architecture leveraging background task processing for heavy AI workloads.
