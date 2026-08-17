@@ -61,6 +61,12 @@ graph TD
     Worker -->|Update Status| DB
 ```
 
+**Detailed Explanation of High-Level Design (HLD):**
+- **Frontend Client (React/Vite)**: The user interface is built using React 19 and Vite for fast bundling. It relies on Tailwind and Shadcn UI for a consistent, premium design system. State is managed via React Context and Hooks.
+- **Django Backend Core**: Serves as the primary REST API. It handles incoming HTTP requests, performs business logic, authenticates users via custom JWTs (stored in HttpOnly cookies), and manages the database.
+- **Asynchronous Workers**: To prevent the API from hanging on long-running AI tasks, heavy workloads are delegated to a Redis Message Broker. Celery workers consume these tasks asynchronously.
+- **AI & External APIs**: The Celery workers communicate directly with AI models (Gemini/OpenRouter) for content generation and external Social APIs (Twitter/X, Facebook, etc.) for publishing.
+
 ## 🧩 Low-Level Design (LLD)
 
 Our Django backend is split into multiple highly decoupled applications. Authentication is handled via Custom JWTs stored in memory and HttpOnly cookies, completely bypassing default Session CSRF vulnerabilities.
@@ -82,6 +88,14 @@ graph LR
     LG -.->|Task Queue| CeleryWorker["Celery Tasks"]:::worker
     CeleryWorker -.->|Process Content| API["External APIs"]:::worker
 ```
+
+**Detailed Explanation of Low-Level Design (LLD):**
+- **accounts (JWT Auth)**: Manages user authentication strictly through HttpOnly JWT cookies to prevent CSRF vulnerabilities.
+- **workspaces (Multi-Tenant)**: Handles the isolation of data. A user can belong to multiple workspaces, and all content and keys are scoped to a specific workspace.
+- **dashboard_api**: The primary interface for the frontend to fetch dashboard statistics, content sources, and trigger manual actions.
+- **ingestion**: Responsible for pulling in raw content from RSS feeds, webhooks, or manual entry.
+- **langgraph_orchestrator**: The AI brain. It orchestrates prompts, talks to AI models, and formats output based on platform-specific rules.
+- **platform_routing**: Handles the final mile—taking AI-generated content and routing it to the correct external social media API using saved OAuth tokens.
 
 ## 🗄️ Entity Relationship Diagram (ERD)
 
@@ -122,6 +136,14 @@ erDiagram
         string status
     }
 ```
+
+**Detailed Explanation of Entity Relationship Diagram (ERD):**
+- **User & Workspace**: The core of the multi-tenant architecture. A `USER` can belong to many `WORKSPACE`s, but has one `current_workspace` active at a time. A user also has a `BUSINESS_PROFILE`.
+- **Platform Account**: Stores the OAuth tokens and platform details (e.g., Twitter, Meta) scoped to a workspace.
+- **Content Source**: Represents RSS feeds or webhooks tracked by a workspace. When new content arrives, it triggers a `GENERATION_TASK`.
+- **Generation Task & Generated Post**: A task represents the async background job. It creates a `GENERATED_POST` which acts as a container for platform-specific variations.
+- **Post Variation & Media**: Each variation (e.g., a short tweet vs. a long LinkedIn post) belongs to a `GENERATED_POST`. Variations can share a `GENERATED_IMAGE`.
+- **Social Post**: The final record representing a successful or failed publish attempt to the external platform.
 
 ---
 

@@ -18,8 +18,8 @@ import AdminRoute from './context/AdminRoute';
 import PlatformsDashboard from './pages/platforms/PlatformsDashboard';
 import MetaSetup from './pages/platforms/MetaSetup';
 import TwitterSetup from './pages/platforms/TwitterSetup';
+import WhatsAppSetup from './pages/platforms/WhatsAppSetup';
 
-import ChatTest from './pages/ChatTest';
 
 import AppLayout from './components/AppLayout';
 
@@ -47,7 +47,7 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         
-        <Route path="/chat-test" element={<ChatTest />} />
+
         <Route path="/auth/callback" element={<AuthCallback />} />
         
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -57,6 +57,7 @@ function AnimatedRoutes() {
           <Route path="/platforms" element={<PlatformsDashboard />} />
           <Route path="/platforms/meta" element={<MetaSetup />} />
           <Route path="/platforms/twitter" element={<TwitterSetup />} />
+          <Route path="/platforms/whatsapp" element={<WhatsAppSetup />} />
         </Route>
         
         {/* Super Admin Route */}

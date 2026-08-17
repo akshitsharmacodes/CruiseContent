@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { FaFacebook } from "react-icons/fa";
+import { FaFacebook, FaWhatsapp } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { PageTransition } from '../../components/ui/PageTransition';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { toast } from 'sonner';
-import axios from 'axios';
+import useApi from '../../hooks/useApi';
 
 const AVAILABLE_PLATFORMS = [
   {
@@ -29,18 +29,28 @@ const AVAILABLE_PLATFORMS = [
     color: 'text-slate-800 dark:text-slate-200',
     bg: 'bg-slate-100 dark:bg-slate-800',
     description: 'Connect your developer app to Tweet generated content instantly.'
+  },
+  {
+    id: 'WHATSAPP',
+    name: 'WhatsApp',
+    icon: FaWhatsapp,
+    route: '/platforms/whatsapp',
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    description: 'Connect your WhatsApp using Evolution API to publish Statuses and Broadcasts.'
   }
 ];
 
 export default function PlatformsDashboard() {
   const navigate = useNavigate();
+  const api = useApi();
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPlatforms = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/platform/connected/');
+        const response = await api.get('platform/connected/');
         setConnectedPlatforms(response.data.connected_platforms || []);
       } catch (error) {
         toast.error("Failed to load connected platforms");
@@ -53,6 +63,19 @@ export default function PlatformsDashboard() {
 
   const isConnected = (platformId) => {
     return connectedPlatforms.some(p => p.platform === platformId);
+  };
+
+  const handleDisconnect = async (platformId) => {
+    if (!window.confirm("Are you sure you want to disconnect this platform?")) return;
+    
+    try {
+      const dbPlatformId = platformId === 'FACEBOOK_PAGE' ? 'FACEBOOK' : platformId;
+      await api.delete(`platform/disconnect/${dbPlatformId}/`);
+      setConnectedPlatforms(prev => prev.filter(p => p.platform !== platformId));
+      toast.success("Successfully disconnected platform.");
+    } catch (error) {
+      toast.error("Failed to disconnect platform.");
+    }
   };
 
   return (
@@ -108,15 +131,39 @@ export default function PlatformsDashboard() {
                       {/* Optional extra content could go here */}
                     </CardContent>
                     <CardFooter>
-                      <motion.div whileTap={{ scale: 0.98 }} className="w-full">
-                        <Button 
-                          className="w-full" 
-                          variant={connected ? "outline" : "default"}
-                          onClick={() => navigate(platform.route)}
-                        >
-                          {connected ? 'Manage Settings' : 'Connect'}
-                        </Button>
-                      </motion.div>
+                      <div className="w-full">
+                        {connected ? (
+                          <div className="flex gap-2 w-full">
+                            <motion.div whileTap={{ scale: 0.98 }} className="flex-1">
+                              <Button 
+                                className="w-full" 
+                                variant="outline"
+                                onClick={() => navigate(platform.route)}
+                              >
+                                Manage Settings
+                              </Button>
+                            </motion.div>
+                            <motion.div whileTap={{ scale: 0.98 }}>
+                              <Button 
+                                variant="destructive"
+                                onClick={() => handleDisconnect(platform.id)}
+                              >
+                                Disconnect
+                              </Button>
+                            </motion.div>
+                          </div>
+                        ) : (
+                          <motion.div whileTap={{ scale: 0.98 }} className="w-full">
+                            <Button 
+                              className="w-full" 
+                              variant="default"
+                              onClick={() => navigate(platform.route)}
+                            >
+                              Connect
+                            </Button>
+                          </motion.div>
+                        )}
+                      </div>
                     </CardFooter>
                   </Card>
                 </motion.div>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import useApi from './useApi';
 import { toast } from 'sonner';
 
 export function useGenerationTask() {
+  const api = useApi();
   const [taskId, setTaskId] = useState(null);
   const [status, setStatus] = useState('Idle');
   const [generatedContent, setGeneratedContent] = useState({});
@@ -11,7 +12,7 @@ export function useGenerationTask() {
     try {
       setStatus('Pending');
       setGeneratedContent({});
-      const response = await axios.post('http://localhost:8000/api/generate/', {
+      const response = await api.post('generate/', {
         input_type: inputType,
         input_data: inputData,
         platforms,
@@ -31,7 +32,7 @@ export function useGenerationTask() {
     if (taskId && (status === 'Pending' || status === 'Processing')) {
       interval = setInterval(async () => {
         try {
-          const response = await axios.get(`http://localhost:8000/api/generate/${taskId}/`);
+          const response = await api.get(`generate/${taskId}/`);
           const taskData = response.data;
           setStatus(taskData.status);
           
@@ -65,20 +66,27 @@ export function useGenerationTask() {
     }));
   };
 
-  const publishContent = async (platform) => {
+  const publishContent = async (platform, scheduledFor) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/platform/publish/', {
+      const response = await api.post('platform/publish/', {
         platform: platform,
         content: generatedContent.texts ? generatedContent.texts[platform] : generatedContent[platform],
-        image_url: generatedContent.image_url
+        image_url: generatedContent.image_url,
+        scheduled_for: scheduledFor
       });
       
       const postId = response.data.post_id;
+      const initialStatus = response.data.status;
+
+      if (initialStatus === 'SCHEDULED') {
+        toast.success(`Successfully scheduled for ${platform}!`);
+        return Promise.resolve();
+      }
       
       return new Promise((resolve, reject) => {
         const interval = setInterval(async () => {
           try {
-            const statusRes = await axios.get(`http://localhost:8000/api/platform/publish/status/${postId}/`);
+            const statusRes = await api.get(`platform/publish/status/${postId}/`);
             const postStatus = statusRes.data.status;
             
             if (postStatus === 'SUCCESS') {
@@ -110,7 +118,7 @@ export function useGenerationTask() {
 
   const regeneratePlatform = async (platform, inputType, inputData) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/generate/', {
+      const response = await api.post('generate/', {
         input_type: inputType,
         input_data: inputData,
         platforms: [platform]
@@ -120,7 +128,7 @@ export function useGenerationTask() {
       return new Promise((resolve, reject) => {
         const interval = setInterval(async () => {
           try {
-            const res = await axios.get(`http://localhost:8000/api/generate/${newTaskId}/`);
+            const res = await api.get(`generate/${newTaskId}/`);
             if (res.data.status === 'Completed') {
               clearInterval(interval);
               const newContent = res.data.generated_content?.texts?.[platform] || res.data.generated_content?.[platform];

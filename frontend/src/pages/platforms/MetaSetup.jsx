@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Share2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { PageTransition } from '../../components/ui/PageTransition';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,10 +10,11 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
-import axios from 'axios';
+import useApi from '../../hooks/useApi';
 
 export default function MetaSetup() {
   const navigate = useNavigate();
+  const api = useApi();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     page_id: '',
@@ -20,9 +22,20 @@ export default function MetaSetup() {
     page_name: ''
   });
 
-  const handleOAuthLogin = () => {
-    // Redirect to backend OAuth endpoint
-    window.location.href = 'http://localhost:8000/api/platform/facebook/login/';
+  const handleOAuthLogin = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('platform/facebook/login/');
+      if (response.data && response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        toast.error("Failed to get Meta login URL");
+        setLoading(false);
+      }
+    } catch (error) {
+      toast.error("Failed to initialize Meta login");
+      setLoading(false);
+    }
   };
 
   const handleManualSubmit = async (e) => {
@@ -30,7 +43,7 @@ export default function MetaSetup() {
     setLoading(true);
     
     try {
-      await axios.post('http://localhost:8000/api/platform/facebook/connect-manual/', formData);
+      await api.post('platform/facebook/connect-manual/', formData);
       toast.success("Successfully connected Facebook Page!");
       navigate('/platforms');
     } catch (error) {
@@ -51,8 +64,9 @@ export default function MetaSetup() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Platforms
               </Button>
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-50 rounded-xl">
-                  <Share2 className="w-8 h-8 text-blue-600" />
+                <div className="p-3 bg-blue-50 rounded-xl flex items-center gap-2">
+                  <FaFacebook className="w-8 h-8 text-blue-600" />
+                  <FaInstagram className="w-8 h-8 text-pink-600" />
                 </div>
                 <h1 className="text-4xl font-semibold tracking-tight text-foreground">Meta Setup</h1>
               </div>
@@ -74,8 +88,9 @@ export default function MetaSetup() {
                 </TabsList>
                 
                 <TabsContent value="oauth" className="space-y-6 pt-4 pb-8 flex flex-col items-center text-center">
-                  <div className="bg-blue-50 p-6 rounded-full mb-4">
-                    <Share2 className="w-12 h-12 text-blue-600" />
+                  <div className="bg-blue-50 p-6 rounded-full mb-4 flex items-center gap-2">
+                    <FaFacebook className="w-10 h-10 text-blue-600" />
+                    <FaInstagram className="w-10 h-10 text-pink-600" />
                   </div>
                   <div className="space-y-2 max-w-sm">
                     <h3 className="font-medium text-lg">Login with Meta</h3>
@@ -85,7 +100,9 @@ export default function MetaSetup() {
                   </div>
                   
                   <motion.div whileTap={{ scale: 0.98 }}>
-                    <Button onClick={handleOAuthLogin} className="bg-blue-600 hover:bg-blue-700 text-white px-8 mt-4">
+                    <Button onClick={handleOAuthLogin} className="bg-blue-600 hover:bg-blue-700 text-white px-8 mt-4 flex items-center gap-2">
+                      <FaFacebook className="w-4 h-4" />
+                      <FaInstagram className="w-4 h-4" />
                       Connect via Meta
                     </Button>
                   </motion.div>

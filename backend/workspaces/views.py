@@ -18,8 +18,11 @@ class BusinessProfileView(APIView):
 
     def get(self, request):
         user = request.user
+        if not user.current_workspace:
+            return Response({"detail": "No active workspace", "onboarding_required": True}, status=status.HTTP_404_NOT_FOUND)
+            
         try:
-            profile = user.business_profile
+            profile = user.current_workspace.business_profile
             serializer = BusinessProfileSerializer(profile)
             return Response(serializer.data)
         except BusinessProfile.DoesNotExist:
@@ -27,14 +30,17 @@ class BusinessProfileView(APIView):
 
     def post(self, request):
         user = request.user
+        if not user.current_workspace:
+            return Response({"detail": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
-            profile = user.business_profile
+            profile = user.current_workspace.business_profile
             serializer = BusinessProfileSerializer(profile, data=request.data, partial=True)
         except BusinessProfile.DoesNotExist:
             serializer = BusinessProfileSerializer(data=request.data)
             
         if serializer.is_valid():
-            serializer.save(user=user)
+            serializer.save(workspace=user.current_workspace)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -47,22 +53,24 @@ class OnboardView(APIView):
         
         business_name = data.get('business_name', 'My Business')
         
-        # 1. Create BusinessProfile
-        profile_serializer = BusinessProfileSerializer(data=data)
-        if profile_serializer.is_valid():
-            profile_serializer.save(user=user)
-        else:
-            return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        # 2. Create Workspace
+        # 1. Create Workspace
         workspace = Workspace.objects.create(name=f"{business_name} Workspace")
         
-        # 3. Link Workspace to User
+        # 2. Link Workspace to User
         user.current_workspace = workspace
         user.save()
         user.workspaces.add(workspace)
         
-        return Response({"message": "Onboarding completed successfully!"}, status=status.HTTP_201_CREATED)
+        # 3. Create BusinessProfile
+        profile_serializer = BusinessProfileSerializer(data=data)
+        if profile_serializer.is_valid():
+            profile_serializer.save(workspace=workspace)
+        else:
+            # Cleanup workspace if profile creation fails
+            workspace.delete()
+            return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        return Response({"message": "Workspace created successfully!", "workspace_id": workspace.id}, status=status.HTTP_201_CREATED)
 
 class SwitchWorkspaceView(APIView):
     permission_classes = [permissions.IsAuthenticated]

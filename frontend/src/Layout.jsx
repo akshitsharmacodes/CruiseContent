@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Briefcase, LogOut, Rss } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -18,6 +20,7 @@ export default function Layout({ children }) {
   ];
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-gray-50 flex font-inter text-gray-900">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex-col hidden md:flex">
@@ -25,6 +28,9 @@ export default function Layout({ children }) {
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             SofricAI
           </h1>
+        </div>
+        <div className="p-4 border-b border-gray-100">
+          <WorkspaceSwitcher />
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
           {navItems.map((item) => {
@@ -65,5 +71,6 @@ export default function Layout({ children }) {
         </div>
       </main>
     </div>
+    </TooltipProvider>
   );
 }

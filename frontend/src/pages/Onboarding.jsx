@@ -1,39 +1,85 @@
-import { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Questionnaire,
+  QuestionnaireActions,
+  QuestionnaireChoice,
+  QuestionnaireChoices,
+  QuestionnaireDescription,
+  QuestionnaireError,
+  QuestionnaireInput,
+  QuestionnaireItem,
+  QuestionnaireNext,
+  QuestionnairePrevious,
+  QuestionnaireProgress,
+  QuestionnaireSubmit,
+  QuestionnaireTitle,
+} from "@/components/ui/questionnaire"
 
-const Onboarding = () => {
+const items = [
+  {
+    name: "business_name",
+    required: true,
+    prompt: "What is your business name?",
+    description: "This will be the name of your first workspace.",
+    input: { label: "Business Name", placeholder: "e.g. Acme Corp" },
+  },
+  {
+    name: "owner_name",
+    required: true,
+    prompt: "What is your name?",
+    description: "We'll use this to personalize your experience.",
+    input: { label: "Your Name", placeholder: "e.g. John Doe" },
+  },
+  {
+    name: "services_provided",
+    required: true,
+    prompt: "What services do you provide?",
+    description: "Choose the category that best fits your business, or write your own.",
+    choices: [
+      { value: "b2b", label: "B2B Software / Services" },
+      { value: "b2c", label: "B2C E-commerce / Retail" },
+      { value: "agency", label: "Marketing / Creative Agency" },
+    ],
+    input: { label: "Other services", placeholder: "Type your services here..." },
+  },
+  {
+    name: "physical_location_type",
+    required: true,
+    prompt: "Where do you operate?",
+    description: "This helps the AI contextualize location-based posts.",
+    choices: [
+      { value: "Remote", label: "Remote / Online only" },
+      { value: "Hybrid", label: "Hybrid" },
+      { value: "Physical", label: "Physical Storefront / Office" }
+    ],
+  }
+]
+
+export default function Onboarding() {
   const { user, accessToken } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    business_name: '',
-    owner_name: '',
-    services_provided: '',
-    physical_location_type: 'Remote',
-    is_online_or_remote: true
-  });
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleNext = () => setStep(step + 1);
-  const handleBack = () => setStep(step - 1);
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
+    
+    const formData = new FormData(event.currentTarget);
+    
+    const payload = {
+      business_name: formData.get("business_name") || "",
+      owner_name: formData.get("owner_name") || "",
+      services_provided: formData.get("services_provided") || "",
+      physical_location_type: formData.get("physical_location_type") || "Remote",
+      is_online_or_remote: formData.get("physical_location_type") !== "Physical"
+    };
+
     try {
       const response = await fetch('http://localhost:8000/api/onboard/', {
         method: 'POST',
@@ -41,7 +87,7 @@ const Onboarding = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -58,114 +104,67 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-card p-8 rounded-xl shadow-lg border border-border overflow-hidden">
-        <h2 className="text-2xl font-bold mb-2">Welcome to SofricAI</h2>
-        <p className="text-muted-foreground mb-8">Let's set up your business profile so our AI can learn about you.</p>
+      <div className="w-full max-w-xl bg-card p-8 rounded-xl shadow-lg border border-border overflow-hidden">
         
-        <div className="flex mb-8">
-          <div className={`h-1 flex-1 rounded-l-full ${step >= 1 ? 'bg-primary' : 'bg-secondary'}`} />
-          <div className={`h-1 flex-1 mx-1 ${step >= 2 ? 'bg-primary' : 'bg-secondary'}`} />
-          <div className={`h-1 flex-1 rounded-r-full ${step >= 3 ? 'bg-primary' : 'bg-secondary'}`} />
-        </div>
-
-        <AnimatePresence mode="wait">
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+        <Questionnaire items={items} onSubmit={handleSubmit}>
+          <QuestionnaireProgress className="mb-8" />
+          
+          {items.map((question) => (
+            <QuestionnaireItem
+              key={question.name}
+              name={question.name}
+              required={question.required}
+              className="space-y-6"
             >
-              <h3 className="text-lg font-semibold mb-4">The Basics</h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="business_name">Business Name</Label>
-                  <Input 
-                    id="business_name" 
-                    name="business_name" 
-                    value={formData.business_name} 
-                    onChange={handleChange} 
-                    placeholder="e.g. Acme Corp" 
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="owner_name">Your Name</Label>
-                  <Input 
-                    id="owner_name" 
-                    name="owner_name" 
-                    value={formData.owner_name} 
-                    onChange={handleChange} 
-                    placeholder="John Doe" 
-                  />
-                </div>
+              <div className="space-y-2">
+                <QuestionnaireTitle className="text-2xl font-bold">{question.prompt}</QuestionnaireTitle>
+                <QuestionnaireDescription className="text-muted-foreground">
+                  {question.description}
+                </QuestionnaireDescription>
               </div>
-              <div className="mt-8 flex justify-end">
-                <Button onClick={handleNext} disabled={!formData.business_name}>Next Step</Button>
-              </div>
-            </motion.div>
-          )}
 
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <h3 className="text-lg font-semibold mb-4">Operations</h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="services_provided">What services do you provide?</Label>
-                  <Textarea 
-                    id="services_provided" 
-                    name="services_provided" 
-                    value={formData.services_provided} 
-                    onChange={handleChange} 
-                    placeholder="e.g. We provide web design and digital marketing services." 
-                    className="min-h-[100px]"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="physical_location_type">Location Type</Label>
-                  <Input 
-                    id="physical_location_type" 
-                    name="physical_location_type" 
-                    value={formData.physical_location_type} 
-                    onChange={handleChange} 
-                    placeholder="e.g. Remote, Clinic, Office" 
-                  />
-                </div>
-              </div>
-              <div className="mt-8 flex justify-between">
-                <Button variant="outline" onClick={handleBack}>Back</Button>
-                <Button onClick={handleNext} disabled={!formData.services_provided}>Next Step</Button>
-              </div>
-            </motion.div>
-          )}
+              {question.choices || question.input ? (
+                <QuestionnaireChoices className="grid gap-3">
+                  {question.choices?.map((choice) => (
+                    <QuestionnaireChoice 
+                      key={choice.value} 
+                      value={choice.value}
+                      className="border border-border p-4 rounded-xl hover:bg-secondary transition-colors cursor-pointer flex items-center gap-3 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary"
+                    >
+                      <span className="font-medium text-foreground">{choice.label}</span>
+                    </QuestionnaireChoice>
+                  ))}
+                  
+                  {question.input ? (
+                    <div className="mt-4">
+                      <QuestionnaireInput
+                        aria-label={question.input.label}
+                        placeholder={question.input.placeholder}
+                        className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                  ) : null}
+                </QuestionnaireChoices>
+              ) : null}
+              <QuestionnaireError className="text-destructive text-sm font-medium mt-2" />
+            </QuestionnaireItem>
+          ))}
+          
+          <QuestionnaireActions className="flex justify-between items-center mt-12 pt-6 border-t border-border">
+            <QuestionnairePrevious className="px-6 py-2 border border-border rounded-full hover:bg-secondary text-sm font-medium transition-colors" />
+            <div className="flex gap-3 ml-auto">
+              <QuestionnaireNext className="px-6 py-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 text-sm font-medium transition-colors" />
+              <QuestionnaireSubmit 
+                disabled={loading}
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 text-sm font-medium transition-colors disabled:opacity-50" 
+              >
+                {loading ? 'Submitting...' : 'Complete Setup'}
+              </QuestionnaireSubmit>
+            </div>
+          </QuestionnaireActions>
+        </Questionnaire>
 
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <h3 className="text-lg font-semibold mb-4">You're all set!</h3>
-              <p className="text-muted-foreground mb-6">
-                We will now create your first Workspace for <strong>{formData.business_name}</strong>.
-              </p>
-              <div className="mt-8 flex justify-between">
-                <Button variant="outline" onClick={handleBack}>Back</Button>
-                <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Workspace'}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
-};
-
-export default Onboarding;
+}

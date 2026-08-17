@@ -1,8 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-from workspaces.models import PlatformAccount, User
+from workspaces.models import PlatformAccount, User, Workspace
 from .models import SocialPost, GeneratedImage
 from .tasks import publish_to_instagram_task, publish_to_facebook_task, publish_to_twitter_task
 import requests
@@ -11,13 +12,14 @@ from django.conf import settings
 from django.shortcuts import redirect
 
 class PublishPostView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
         content = request.data.get('content')
         platform_account_id = request.data.get('platform_account_id')
         platform = request.data.get('platform')
         image_url = request.data.get('image_url')
+        scheduled_for_str = request.data.get('scheduled_for')
 
         if not content:
             return Response(
@@ -32,7 +34,7 @@ class PublishPostView(APIView):
             )
 
         # Ensure the platform account exists and belongs to the user's workspace
-        user = User.objects.first()
+        user = request.user
         
         if platform_account_id:
             account = get_object_or_404(PlatformAccount, id=platform_account_id, workspace=user.current_workspace)
@@ -60,26 +62,37 @@ class PublishPostView(APIView):
             relative_path = image_url.replace('/media/', '')
             gen_image = GeneratedImage.objects.filter(image=relative_path).first()
 
-        # Create the post in PENDING status
+        from django.utils.dateparse import parse_datetime
+        from django.utils import timezone
+        
+        scheduled_time = None
+        if scheduled_for_str:
+            scheduled_time = parse_datetime(scheduled_for_str)
+
+        # Create the post in PENDING or SCHEDULED status
+        initial_status = 'SCHEDULED' if scheduled_time and scheduled_time > timezone.now() else 'PENDING'
+        
         post = SocialPost.objects.create(
             platform_account=account,
             content=content,
             image=gen_image,
-            status='PENDING'
+            status=initial_status,
+            scheduled_for=scheduled_time
         )
 
-        # Trigger the celery task asynchronously based on platform
-        if account.platform == 'INSTAGRAM':
-            publish_to_instagram_task.delay(post.id)
-        elif account.platform == 'FACEBOOK_PAGE':
-            publish_to_facebook_task.delay(post.id)
-        elif account.platform == 'TWITTER':
-            publish_to_twitter_task.delay(post.id)
-        else:
-            post.status = 'FAILED'
-            post.error_message = f"Unsupported platform: {account.platform}"
-            post.save()
-            return Response({"error": f"Unsupported platform: {account.platform}"}, status=status.HTTP_400_BAD_REQUEST)
+        if initial_status == 'PENDING':
+            # Trigger the celery task asynchronously immediately
+            if account.platform == 'INSTAGRAM':
+                publish_to_instagram_task.delay(post.id)
+            elif account.platform == 'FACEBOOK_PAGE':
+                publish_to_facebook_task.delay(post.id)
+            elif account.platform == 'TWITTER':
+                publish_to_twitter_task.delay(post.id)
+            else:
+                post.status = 'FAILED'
+                post.error_message = f"Unsupported platform: {account.platform}"
+                post.save()
+                return Response({"error": f"Unsupported platform: {account.platform}"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {
@@ -91,7 +104,7 @@ class PublishPostView(APIView):
         )
 
 class PublishPostStatusView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, post_id):
         post = get_object_or_404(SocialPost, id=post_id)
@@ -106,13 +119,13 @@ class FacebookLoginView(APIView):
     """
     Redirects the user to the Facebook OAuth login page.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
         app_id = getattr(settings, 'FACEBOOK_APP_ID', '')
         redirect_uri = getattr(settings, 'FACEBOOK_REDIRECT_URI', 'http://localhost:8000/api/platform/facebook/callback/')
         
-        user = User.objects.first()
+        user = request.user
         fb_auth_url = (
             f"https://www.facebook.com/v20.0/dialog/oauth?"
             f"client_id={app_id}&"
@@ -120,7 +133,7 @@ class FacebookLoginView(APIView):
             f"scope=pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management&"
             f"state={user.id}"  # Pass the user id in state to link it back later
         )
-        return redirect(fb_auth_url)
+        return Response({'url': fb_auth_url})
 
 class FacebookCallbackView(APIView):
     """
@@ -133,7 +146,7 @@ class FacebookCallbackView(APIView):
         state = request.GET.get('state')  # This is the user id
         
         if not code:
-            return Response({"error": "Missing code from Facebook"}, status=status.HTTP_400_BAD_REQUEST)
+            return redirect('http://localhost:5173/platforms?error=missing_code')
             
         app_id = getattr(settings, 'FACEBOOK_APP_ID', '')
         app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', '')
@@ -151,7 +164,7 @@ class FacebookCallbackView(APIView):
         access_token = token_res.get('access_token')
         
         if not access_token:
-            return Response({"error": "Failed to retrieve access token", "details": token_res}, status=status.HTTP_400_BAD_REQUEST)
+            return redirect('http://localhost:5173/platforms?error=token_failed')
             
         # [DEBUG] Inspect the token to see what scopes Facebook actually granted
         debug_url = f"https://graph.facebook.com/v20.0/debug_token?input_token={access_token}&access_token={app_id}|{app_secret}"
@@ -166,11 +179,7 @@ class FacebookCallbackView(APIView):
         print("FACEBOOK PAGES RESPONSE:", pages_res)
         
         if 'data' not in pages_res or len(pages_res['data']) == 0:
-            return Response({
-                "error": "No Facebook Pages found for this user", 
-                "raw_response": pages_res,
-                "scopes_granted_by_facebook": scopes_granted
-            }, status=status.HTTP_404_NOT_FOUND)
+            return redirect('http://localhost:5173/platforms?error=no_pages')
             
         # For simplicity, we just link the first page found.
         # In a real dashboard, we might return a list and ask the user to select.
@@ -221,17 +230,13 @@ class FacebookCallbackView(APIView):
             )
             ig_message = " and linked Instagram account"
         
-        return Response({
-            "message": f"Successfully connected Facebook Page{ig_message}!",
-            "page_name": page_name,
-            "account_id": page_id
-        })
+        return redirect('http://localhost:5173/platforms?success=true')
 
 class ConnectManualFacebookView(APIView):
     """
     Plug and play endpoint to manually connect a Facebook page using a generated token.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
         page_id = request.data.get('page_id')
@@ -241,7 +246,7 @@ class ConnectManualFacebookView(APIView):
         if not page_id or not access_token:
             return Response({"error": "Both 'page_id' and 'access_token' are required"}, status=status.HTTP_400_BAD_REQUEST)
             
-        user = User.objects.first()
+        user = request.user
         account, created = PlatformAccount.objects.update_or_create(
             workspace=user.current_workspace,
             platform='FACEBOOK_PAGE',
@@ -261,10 +266,10 @@ class GetConnectedPlatformsView(APIView):
     """
     Returns a list of all currently connected platforms for the workspace.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        user = User.objects.first()
+        user = request.user
         accounts = PlatformAccount.objects.filter(workspace=user.current_workspace)
         data = []
         for acc in accounts:
@@ -276,11 +281,33 @@ class GetConnectedPlatformsView(APIView):
             })
         return Response({"connected_platforms": data})
 
+class DisconnectPlatformView(APIView):
+    """
+    Disconnects a specific platform for the user's workspace.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, platform_name):
+        user = request.user
+        db_platform = platform_name.upper()
+        if db_platform == 'FACEBOOK':
+            db_platform = 'FACEBOOK_PAGE'
+            
+        deleted_count, _ = PlatformAccount.objects.filter(
+            workspace=user.current_workspace,
+            platform=db_platform
+        ).delete()
+
+        if deleted_count > 0:
+            return Response({"message": f"Successfully disconnected {platform_name}."})
+        return Response({"error": "Platform connection not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
 class ConnectManualTwitterView(APIView):
     """
     Plug and play endpoint to manually connect Twitter using developer keys.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
         api_key = request.data.get('api_key')
@@ -300,7 +327,7 @@ class ConnectManualTwitterView(APIView):
             "access_token_secret": access_token_secret
         }
         
-        user = User.objects.first()
+        user = request.user
         account, created = PlatformAccount.objects.update_or_create(
             workspace=user.current_workspace,
             platform='TWITTER',
@@ -319,7 +346,7 @@ class ConnectManualTwitterView(APIView):
 
 class TwitterLoginView(APIView):
     """Initiates Twitter OAuth 2.0 PKCE Flow"""
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
         client_id = getattr(settings, 'TWITTER_CLIENT_ID', '')
         redirect_uri = getattr(settings, 'TWITTER_REDIRECT_URI', 'http://localhost:8000/api/platform/twitter/callback/')
@@ -343,9 +370,11 @@ class TwitterLoginView(APIView):
         code_verifier = getattr(oauth2_user_handler._client, 'code_verifier', None)
         
         if state and code_verifier:
-            cache.set(f'twitter_oauth_{state}', code_verifier, timeout=3600)
+            new_state = f"{state}___{request.user.id}"
+            auth_url = auth_url.replace(f"state={state}", f"state={new_state}")
+            cache.set(f'twitter_oauth_{new_state}', code_verifier, timeout=3600)
             
-        return redirect(auth_url)
+        return Response({'url': auth_url})
 
 class TwitterCallbackView(APIView):
     """Handles standard Twitter OAuth 2.0 PKCE Callback"""
@@ -355,7 +384,7 @@ class TwitterCallbackView(APIView):
         state = request.GET.get('state')
         
         if not code or not state:
-            return Response({"error": "Missing authorization code or state"}, status=status.HTTP_400_BAD_REQUEST)
+            return redirect('http://localhost:5173/platforms?error=missing_code')
             
         import tweepy
         from django.core.cache import cache
@@ -366,7 +395,7 @@ class TwitterCallbackView(APIView):
         # Retrieve the PKCE code_verifier string from the cache
         code_verifier = cache.get(f'twitter_oauth_{state}')
         if not code_verifier:
-            return Response({"error": "OAuth session expired or invalid state. Please try again."}, status=status.HTTP_400_BAD_REQUEST)
+            return redirect('http://localhost:5173/platforms?error=session_expired')
         
         oauth2_user_handler = tweepy.OAuth2UserHandler(
             client_id=client_id,
@@ -389,7 +418,11 @@ class TwitterCallbackView(APIView):
             twitter_id = str(me.data.id)
             twitter_username = me.data.username
             
-            user = User.objects.first()
+            user_id = state.split('___')[-1] if '___' in state else None
+            if not user_id:
+                return redirect('http://localhost:5173/platforms?error=invalid_state')
+                
+            user = User.objects.get(id=user_id)
             if not user.current_workspace:
                 from workspaces.models import Workspace
                 user.current_workspace = Workspace.objects.first()
@@ -404,12 +437,120 @@ class TwitterCallbackView(APIView):
                     'name': f"@{twitter_username}"
                 }
             )
-            return Response({
-                "message": "Successfully connected Twitter!",
-                "account_name": twitter_username
-            })
+            return redirect('http://localhost:5173/platforms?success=true')
             
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return redirect('http://localhost:5173/platforms?error=twitter_connect_failed')
+
+class ScheduledPostsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if not user.current_workspace:
+            return Response({"error": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        posts = SocialPost.objects.filter(
+            platform_account__workspace=user.current_workspace,
+            status='SCHEDULED'
+        ).order_by('scheduled_for')
+        
+        data = []
+        for p in posts:
+            data.append({
+                "id": str(p.id),
+                "platform": p.platform_account.platform,
+                "account_name": p.platform_account.name,
+                "content": p.content,
+                "scheduled_for": p.scheduled_for.isoformat() if p.scheduled_for else None,
+                "image_url": p.image.image.url if p.image and p.image.image else None
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
+
+class ScheduledPostDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_post(self, request, post_id):
+        user = request.user
+        return get_object_or_404(
+            SocialPost, 
+            id=post_id, 
+            platform_account__workspace=user.current_workspace,
+            status='SCHEDULED'
+        )
+
+    def put(self, request, post_id):
+        post = self.get_post(request, post_id)
+        
+        content = request.data.get('content')
+        scheduled_for_str = request.data.get('scheduled_for')
+        
+        if content is not None:
+            post.content = content
+            
+        if scheduled_for_str is not None:
+            from django.utils.dateparse import parse_datetime
+            from django.utils import timezone
+            dt = parse_datetime(scheduled_for_str)
+            if dt:
+                post.scheduled_for = dt
+                
+        post.save()
+        
+        return Response({
+            "id": str(post.id),
+            "platform": post.platform_account.platform,
+            "content": post.content,
+            "scheduled_for": post.scheduled_for.isoformat() if post.scheduled_for else None
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, post_id):
+        post = self.get_post(request, post_id)
+        post.delete()
+        return Response({"message": "Scheduled post cancelled successfully."}, status=status.HTTP_200_OK)
+
+from .evolution import create_instance
+
+class WhatsAppGetQRView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        workspace = request.user.current_workspace
+        if not workspace:
+            return Response({"error": "No active workspace."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        result = create_instance(workspace.id)
+        if result.get("success"):
+            return Response({"qr_code": result["qr_code"]}, status=status.HTTP_200_OK)
+        return Response({"error": result.get("error", "Unknown error")}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class WhatsAppWebhookView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        data = request.data
+        event = data.get("event")
+        instance = data.get("instance")
+        
+        # Evolution API sends CONNECTION_UPDATE when status changes
+        if event == "connection.update":
+            state = data.get("data", {}).get("state")
+            if state == "open":
+                # Connection established
+                workspace_id = instance.replace("workspace_", "")
+                workspace = Workspace.objects.filter(id=workspace_id).first()
+                if workspace:
+                    PlatformAccount.objects.update_or_create(
+                        workspace=workspace,
+                        platform='WHATSAPP',
+                        defaults={
+                            'account_id': instance,
+                            'access_token': 'evolution_api_token', # Or store instance_name
+                            'name': 'WhatsApp'
+                        }
+                    )
+        return Response({"status": "received"}, status=status.HTTP_200_OK)
+

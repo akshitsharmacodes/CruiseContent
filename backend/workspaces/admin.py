@@ -23,7 +23,7 @@ class PlatformAccountAdmin(admin.ModelAdmin):
 
 @admin.register(BusinessProfile)
 class BusinessProfileAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'owner_name', 'user', 'is_online_or_remote', 'created_at')
-    search_fields = ('business_name', 'owner_name', 'user__email')
+    list_display = ('business_name', 'owner_name', 'workspace', 'is_online_or_remote', 'created_at')
+    search_fields = ('business_name', 'owner_name', 'workspace__name')
     list_filter = ('is_online_or_remote', 'physical_location_type')
     readonly_fields = ('id', 'created_at', 'updated_at')

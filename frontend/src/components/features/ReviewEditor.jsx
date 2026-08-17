@@ -3,10 +3,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 
 export default function ReviewEditor({ platform, content, imageUrl, onUpdate, onPublish, onRegenerate }) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [scheduledFor, setScheduledFor] = useState('');
 
   const handleRegenerate = async () => {
     if (!onRegenerate) return;
@@ -25,7 +27,11 @@ export default function ReviewEditor({ platform, content, imageUrl, onUpdate, on
     if (!onPublish) return;
     setIsPublishing(true);
     try {
-      await onPublish(platform);
+      let scheduledForIso = null;
+      if (scheduledFor) {
+          scheduledForIso = new Date(scheduledFor).toISOString();
+      }
+      await onPublish(platform, scheduledForIso);
     } catch (e) {
       // Error handled by hook
     } finally {
@@ -75,25 +81,39 @@ export default function ReviewEditor({ platform, content, imageUrl, onUpdate, on
       </div>
     </div>
     
-    <div className="flex justify-end gap-3">
-      <Button 
-        variant="outline" 
-        className="rounded-full" 
-        onClick={handleRegenerate}
-        disabled={isRegenerating || isPublishing}
-      >
-        {isRegenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-        Regenerate
-      </Button>
-      <Button 
-        onClick={handlePublish} 
-        className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-        disabled={isRegenerating || isPublishing}
-      >
-        {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-        {isPublishing ? 'Publishing...' : 'Approve & Post'}
-      </Button>
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mt-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto flex-wrap">
+        <label className="text-sm font-medium text-muted-foreground whitespace-nowrap shrink-0">
+          Schedule (Optional):
+        </label>
+        <div className="flex-1 min-w-[200px]">
+          <DateTimePicker 
+            date={scheduledFor} 
+            setDate={setScheduledFor} 
+            disabled={isRegenerating || isPublishing} 
+          />
+        </div>
       </div>
+      <div className="flex justify-end gap-3 w-full lg:w-auto flex-wrap sm:flex-nowrap">
+        <Button 
+          variant="outline" 
+          className="rounded-full flex-1 sm:flex-none" 
+          onClick={handleRegenerate}
+          disabled={isRegenerating || isPublishing}
+        >
+          {isRegenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          Regenerate
+        </Button>
+        <Button 
+          onClick={handlePublish} 
+          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex-1 sm:flex-none"
+          disabled={isRegenerating || isPublishing}
+        >
+          {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+          {isPublishing ? 'Publishing...' : (scheduledFor ? 'Schedule Post' : 'Approve & Post')}
+        </Button>
+      </div>
+    </div>
     </div>
   );
 }

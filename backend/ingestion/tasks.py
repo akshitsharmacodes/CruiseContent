@@ -1,5 +1,6 @@
-from celery import shared_task
+from celery import shared_task, chain
 from celery.utils.log import get_task_logger
+from celery.exceptions import Retry
 from .models import GenerationTask
 import traceback
 import sys
@@ -7,52 +8,68 @@ from django.conf import settings
 
 logger = get_task_logger(__name__)
 
-@shared_task
-def process_generation(task_id, platforms):
+def update_task_error(task_id, error_msg):
     try:
-        logger.info(f"========== STARTING TASK {task_id} ==========")
+        task = GenerationTask.objects.get(id=task_id)
+        task.status = 'Failed'
+        task.error_message = error_msg
+        task.save()
+    except GenerationTask.DoesNotExist:
+        logger.error(f"Task {task_id} not found when trying to update error: {error_msg}")
+
+@shared_task
+def start_generation_chain(task_id, platforms):
+    """Entry point for the celery chain."""
+    logger.info(f"========== STARTING TASK CHAIN {task_id} ==========")
+    try:
         task = GenerationTask.objects.get(id=task_id)
         task.status = 'Processing'
         task.save()
+    except GenerationTask.DoesNotExist:
+        logger.error(f"Task {task_id} not found.")
+        return
+
+    # Execute the tasks sequentially
+    workflow = chain(
+        generate_text_task.s(task_id, platforms),
+        generate_image_task.s(),
+        finalize_generation_task.s()
+    )
+    workflow.apply_async()
+
+
+@shared_task(bind=True, max_retries=3)
+def generate_text_task(self, task_id, platforms):
+    import asyncio
+    logger.info(f"[Step 1] Formulating context and generating text for task {task_id}")
+    try:
+        try:
+            task = GenerationTask.objects.get(id=task_id)
+        except GenerationTask.DoesNotExist as e:
+            logger.warning(f"Task {task_id} not found in DB yet, retrying...")
+            raise self.retry(exc=e, countdown=2 ** self.request.retries)
         
-        logger.info(f"[Step 1] Formulating context for task {task_id}")
-        # Simulate processing for now, capturing actual logic later
-        # e.g., using OpenAI and BeautifulSoup
-        # Formulate Context
-        from workspaces.models import User, BusinessProfile
+        from workspaces.models import User, BusinessProfile, Workspace
         context = ""
-        user = User.objects.first()
-        if user:
+        workspace = Workspace.objects.first()
+        if workspace:
             try:
-                profile = user.business_profile
+                profile = workspace.business_profile
                 context = f"Business Name: {profile.business_name}\nOpening Hours: {profile.opening_hours}\nServices: {profile.services_provided}\nProcedures: {profile.operational_procedures}"
             except BusinessProfile.DoesNotExist:
                 pass
         
-        # AI Integration via Factory
         from platform_routing.services import AIServiceFactory
-        from platform_routing.models import GeneratedImage
-        from django.core.files.base import ContentFile
-        
         try:
             provider = getattr(settings, 'AI_PROVIDER', 'gemini')
             ai_service = AIServiceFactory.get_service(provider)
         except ValueError as e:
-            logger.error(f"[ERROR] Failed to load AI Service: {e}")
-            task.status = 'Failed'
-            task.error_message = f"Failed to load AI Service: {e}"
-            task.save()
-            return
+            raise Exception(f"Failed to load AI Service: {e}")
 
-        logger.info(f"[Step 3] Generating text for platforms: {', '.join(platforms)}")
-        
-        # Step 3.1: Pre-process Classification
         classification = {}
         if ai_service:
             try:
-                logger.info("  -> [TEST CASE] Running Dynamic Prompt Classification...")
                 classification = ai_service.classify_intent(task.input_data, context)
-                logger.info(f"  -> [CLASSIFICATION RESULTS] Persona: {classification.get('persona')}, Goal: {classification.get('goal')}, Tone: {classification.get('tone')}, Format: {classification.get('format')}")
             except Exception as e:
                 logger.error(f"[ERROR in Classification]: {e}")
                 classification = {
@@ -62,91 +79,91 @@ def process_generation(task_id, platforms):
                     "format": "Standard Post"
                 }
 
-        generated_results = {}
-        for platform in platforms:
-            if not ai_service:
-                break
-            if platform.lower() == 'twitter':
-                platform_instruction = (
-                    "TWITTER POST REQUIREMENTS:\n"
-                    "- Structure: [HOOK] -> [PUNCHY POINT] -> [2 HASHTAGS]\n"
-                    "- Max Length: 280 characters.\n"
-                    "- Rule: Keep it extremely brief."
-                )
-            elif platform.lower() == 'instagram':
-                platform_instruction = (
-                    "INSTAGRAM CAPTION REQUIREMENTS:\n"
-                    "- Structure: [ATTENTION GRABBER SENTENCE] -> [8 TRENDING HASHTAGS]\n"
-                    "- Length: Exactly ONE short sentence.\n"
-                    "- Rule: Designed for a photo. Do NOT write paragraphs."
-                )
-            elif platform.lower() == 'facebook':
-                platform_instruction = (
-                    "FACEBOOK POST REQUIREMENTS:\n"
-                    "- Structure: [HOOK/INTRO] -> [BODY/COMMUNITY FOCUS] -> [CALL TO ACTION/ENGAGING QUESTION]\n"
-                    "- Length: At least 3 long paragraphs.\n"
-                    "- Rule: Focus heavily on driving community discussion."
-                )
-            else:
-                platform_instruction = f"Make this post optimized for {platform}."
+        async def fetch_all_platforms():
+            async def fetch_one(platform):
+                if not ai_service:
+                    return platform, None
+                
+                platform_instruction = f"Make this post highly optimized and engaging for {platform}."
+                if platform.lower() == 'twitter':
+                    platform_instruction += " Keep it under 280 chars."
+                elif platform.lower() == 'instagram':
+                    platform_instruction += " Include 8 trending hashtags."
+                elif platform.lower() == 'linkedin':
+                    platform_instruction += " Professional tone."
+                elif platform.lower() == 'facebook':
+                    platform_instruction += " Conversational and engaging."
 
-            system_prompt = (
-                f"You are a professional {classification.get('persona', 'Social Media Manager')}. "
-                f"Goal: {classification.get('goal', 'Brand Awareness')}. "
-                f"Tone: {classification.get('tone', 'Engaging')}. "
-                f"Format: {classification.get('format', 'Direct')}.\n\n"
-                f"Business Context (Use ONLY if relevant):\n{context}\n\n"
-                f"TARGET PLATFORM: {platform.upper()}\n"
-                f"You must strictly follow the format for this specific platform.\n\n"
-                f"OUTPUT FORMATTING:\n"
-                f"Start your response directly with the content. Do not include introductory or concluding remarks (e.g., no 'Here is your post:').\n"
-                f"Follow the structural templates provided in the platform rules exactly.\n\n"
-                f"CRITICAL RULES:\n"
-                f"1. Use ONLY facts, names, and events explicitly provided in the Source Content. Maintain strict factual accuracy.\n"
-                f"2. Use plain text exclusively. You must write without any emojis or icons.\n"
-                f"3. Output strictly the final post text. Begin immediately with the content and stop when finished.\n"
-                f"4. Output MUST be strictly in English. Do NOT use Chinese or any other language."
-            )
-            user_prompt = (
-                f"--- SOURCE CONTENT ---\n{task.input_data}\n\n"
-                f"--- PLATFORM RULES FOR {platform.upper()} ---\n{platform_instruction}\n\n"
-                f"Based ONLY on the Source Content provided above, generate the social media post for {platform.upper()} strictly following the Platform Rules. Start directly with the content."
-            )
-            
-            try:
-                generated_text = ai_service.generate_text(system_prompt, user_prompt)
-                generated_results[platform] = generated_text
-                logger.info(f"  -> Generated content for {platform} successfully.")
-            except Exception as e:
-                logger.error(f"[ERROR in Text Generation for {platform}]: {str(e)}", exc_info=True)
-            
-        logger.info("[Step 4] Starting Image Generation phase.")
+                system_prompt = (
+                    f"You are a {classification.get('persona', 'Social Media Manager')}. "
+                    f"Goal: {classification.get('goal', 'Brand Awareness')}. Tone: {classification.get('tone', 'Engaging')}.\n\n"
+                    f"Business Context: {context}\nTARGET PLATFORM: {platform.upper()}\n"
+                    f"OUTPUT FORMATTING: strictly the final post text."
+                )
+                user_prompt = f"--- SOURCE CONTENT ---\n{task.input_data}\n\n--- PLATFORM RULES ---\n{platform_instruction}"
+                
+                try:
+                    res = await asyncio.to_thread(ai_service.generate_text, system_prompt, user_prompt)
+                    return platform, res
+                except Exception as e:
+                    logger.error(f"[ERROR in Text Generation for {platform}]: {str(e)}")
+                    return platform, None
+
+            tasks = [fetch_one(p) for p in platforms]
+            return await asyncio.gather(*tasks)
+
+        results_list = asyncio.run(fetch_all_platforms())
+        generated_results = {p: res for p, res in results_list if res is not None}
+        
+        if not generated_results:
+            raise Exception("Failed to generate text content for any platforms.")
+
+        return {
+            'task_id': task_id,
+            'generated_results': generated_results
+        }
+    except Retry:
+        raise
+    except Exception as e:
+        update_task_error(task_id, str(e))
+        raise self.retry(exc=e, countdown=2 ** self.request.retries)
+
+@shared_task(bind=True, max_retries=3)
+def generate_image_task(self, context_data):
+    task_id = context_data.get('task_id')
+    generated_results = context_data.get('generated_results', {})
+    
+    logger.info(f"[Step 2] Generating image for task {task_id}")
+    try:
+        task = GenerationTask.objects.get(id=task_id)
         image_url = None
         image_error = None
         
-        # Ensure we have a valid workspace for the image
-        from workspaces.models import Workspace
+        from workspaces.models import User, Workspace
+        from platform_routing.services import AIServiceFactory
+        from platform_routing.models import GeneratedImage
+        from django.core.files.base import ContentFile
+        
+        user = User.objects.first()
         target_workspace = (user.current_workspace if user and hasattr(user, 'current_workspace') else None) or Workspace.objects.first()
+        
+        try:
+            provider = getattr(settings, 'AI_PROVIDER', 'gemini')
+            ai_service = AIServiceFactory.get_service(provider)
+        except Exception as e:
+            ai_service = None
 
-        # Check if the user opted out of image generation
         if not task.generate_image:
-            logger.info("  -> Image generation skipped because 'generate_image' toggle is OFF.")
+            logger.info("  -> Image generation skipped.")
         elif generated_results and target_workspace and ai_service:
             try:
                 first_content = list(generated_results.values())[0]
-                logger.info("  -> Formulating image prompt based on generated text and user prompt...")
+                base_image_context = f"Create a high-quality, visually appealing image for a social media post. Context: {first_content[:200]}..."
+                if task.user_image_prompt:
+                    base_image_context += f" Specific request: {task.user_image_prompt}"
                 
-                # Pass the custom user_image_prompt if it exists
-                image_prompt = ai_service.generate_image_prompt(
-                    first_content, 
-                    task.user_image_prompt
-                )
-                logger.info(f"  -> Enhanced Image Prompt: {image_prompt}")
-                
-                logger.info("  -> Calling AI Service to generate image...")
+                image_prompt = ai_service.generate_image_prompt(first_content, base_image_context)
                 image_bytes = ai_service.generate_image(image_prompt)
-                
-                logger.info("  -> Image downloaded successfully! Saving to database...")
                 
                 gen_image = GeneratedImage.objects.create(
                     workspace=target_workspace,
@@ -156,37 +173,32 @@ def process_generation(task_id, platforms):
                 file_name = f"{task.id}_preview.png"
                 gen_image.image.save(file_name, ContentFile(image_bytes))
                 image_url = gen_image.image.url
-                logger.info(f"  -> Image saved successfully at {image_url}")
             except Exception as e:
-                logger.error(f"[ERROR in Image Generation]: {str(e)}", exc_info=True)
                 image_error = str(e)
-        else:
-            logger.warning("[Step 4] Skipped image generation (missing api_key or no generated text).")
+                logger.error(f"[ERROR in Image Generation]: {image_error}")
 
-        if not generated_results:
-            logger.error("========== TASK %s FAILED (NO CONTENT GENERATED) ==========", task_id)
-            task.status = 'Failed'
-            task.error_message = "Failed to generate text content for any platforms. The AI service may be temporarily unavailable."
-            task.save()
-            return
+        context_data['image_url'] = image_url
+        context_data['image_error'] = image_error
+        return context_data
+    except Retry:
+        raise
+    except Exception as e:
+        update_task_error(task_id, str(e))
+        raise self.retry(exc=e, countdown=5)
 
-        logger.info(f"========== TASK {task_id} COMPLETED ==========")
+@shared_task
+def finalize_generation_task(context_data):
+    task_id = context_data.get('task_id')
+    logger.info(f"========== FINALIZING TASK {task_id} ==========")
+    try:
+        task = GenerationTask.objects.get(id=task_id)
         task.generated_content = {
-            "texts": generated_results,
-            "image_url": image_url,
-            "image_error": image_error
+            "texts": context_data.get('generated_results', {}),
+            "image_url": context_data.get('image_url'),
+            "image_error": context_data.get('image_error')
         }
         task.status = 'Completed'
         task.save()
-        
+        logger.info(f"========== TASK {task_id} COMPLETED ==========")
     except Exception as e:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        tb = traceback.extract_tb(exc_traceback)
-        # Get the exact line of error
-        last_call = tb[-1]
-        error_msg = f"Error in {last_call.filename} at line {last_call.lineno}: {str(e)}"
-        
-        task = GenerationTask.objects.get(id=task_id)
-        task.status = 'Failed'
-        task.error_message = error_msg
-        task.save()
+        update_task_error(task_id, str(e))

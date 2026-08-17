@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from .models import ClientProfile
 from .jwt_utils import generate_tokens_for_user, decode_token
 from .tasks import send_welcome_email
@@ -143,4 +143,77 @@ class LogoutView(APIView):
     def post(self, request):
         response = Response({'message': 'Logged out successfully'}, status=status.HTTP_200_OK)
         response.delete_cookie('refresh_token')
+        return response
+
+class StandardLoginView(APIView):
+    """
+    Standard email/password login that issues custom JWTs and sets HttpOnly refresh token.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # We're using email as the username in our custom auth backend
+        user = authenticate(username=email, password=password)
+        
+        if not user:
+            return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Ensure profile exists
+        profile, _ = ClientProfile.objects.get_or_create(user=user)
+
+        # Generate tokens
+        access, refresh = generate_tokens_for_user(user, profile)
+
+        response = Response({'access_token': access})
+        response.set_cookie(
+            key='refresh_token', 
+            value=refresh, 
+            httponly=True, 
+            samesite='Lax',
+            max_age=7*24*60*60
+        )
+        return response
+
+
+class StandardSignupView(APIView):
+    """
+    Standard email/password signup.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'A user with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create user
+        user = User.objects.create_user(username=email, email=email, password=password)
+        profile, _ = ClientProfile.objects.get_or_create(user=user)
+        
+        # Optionally send welcome email here too
+        user_name = email.split('@')[0]
+        send_welcome_email.delay(email, user_name)
+
+        # Generate tokens
+        access, refresh = generate_tokens_for_user(user, profile)
+
+        response = Response({'access_token': access})
+        response.set_cookie(
+            key='refresh_token', 
+            value=refresh, 
+            httponly=True, 
+            samesite='Lax',
+            max_age=7*24*60*60
+        )
         return response

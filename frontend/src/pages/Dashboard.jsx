@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +14,7 @@ import { useOnboardingCheck } from '../hooks/useOnboardingCheck';
 import { useGenerationTask } from '../hooks/useGenerationTask';
 import PlatformSelector from '../components/features/PlatformSelector';
 import ReviewEditor from '../components/features/ReviewEditor';
+import ScheduledQueueDrawer from '../components/features/ScheduledQueueDrawer';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -70,9 +71,14 @@ export default function Dashboard() {
             <h1 className="text-4xl font-semibold tracking-tight text-foreground mb-2">Create Post</h1>
             <p className="text-muted-foreground">Draft and deploy content across your social channels.</p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/platforms')}>
-            Manage Platforms
-          </Button>
+          <div className="flex gap-3">
+            <ScheduledQueueDrawer 
+              trigger={<Button variant="secondary">Scheduled Queue</Button>} 
+            />
+            <Button variant="outline" onClick={() => navigate('/platforms')}>
+              Manage Platforms
+            </Button>
+          </div>
         </div>
 
         <Card className="shadow-none border-border">
@@ -134,27 +140,38 @@ export default function Dashboard() {
           <CardFooter className="flex items-center justify-between border-t border-border pt-6 mt-2">
             <div className="flex flex-col">
               <div className="flex items-center space-x-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={generateImage}
-                  disabled={platforms.includes('instagram')}
-                  onClick={() => {
-                    if (!platforms.includes('instagram')) {
-                      setGenerateImage(!generateImage);
-                    }
-                  }}
-                  className={`${
-                    generateImage ? 'bg-primary' : 'bg-muted'
-                  } ${platforms.includes('instagram') ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`${
-                      generateImage ? 'translate-x-5' : 'translate-x-0'
-                    } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out`}
-                  />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={generateImage}
+                        disabled={platforms.includes('instagram')}
+                        onClick={() => {
+                          if (!platforms.includes('instagram')) {
+                            setGenerateImage(!generateImage);
+                          }
+                        }}
+                        className={`${
+                          generateImage ? 'bg-primary' : 'bg-muted'
+                        } ${platforms.includes('instagram') ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`${
+                            generateImage ? 'translate-x-5' : 'translate-x-0'
+                          } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out`}
+                        />
+                      </button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {platforms.includes('instagram') 
+                      ? 'Instagram requires an image. You cannot disable image generation.' 
+                      : 'Toggle AI image generation on or off.'}
+                  </TooltipContent>
+                </Tooltip>
                 <span className="text-sm font-medium text-foreground">
                   Generate Image
                 </span>

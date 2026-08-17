@@ -74,7 +74,7 @@ export default function WorkspaceSwitcher({ className }) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger render={
         <Button
           variant="outline"
           role="combobox"
@@ -82,10 +82,12 @@ export default function WorkspaceSwitcher({ className }) {
           aria-label="Select a workspace"
           className={cn("w-full justify-between", className)}
         >
-          {selectedWorkspace?.name || "Select Workspace..."}
+          <span className="truncate text-left max-w-[160px]">
+            {selectedWorkspace?.name || "Select Workspace..."}
+          </span>
           <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
-      </PopoverTrigger>
+      } />
       <PopoverContent className="w-[200px] p-0">
         <Command>
           <CommandList>

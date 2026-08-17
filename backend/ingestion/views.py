@@ -15,7 +15,7 @@ class ContentSourceViewSet(viewsets.ModelViewSet):
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .tasks import process_generation
+from .tasks import start_generation_chain
 import traceback
 import sys
 
@@ -42,7 +42,7 @@ def generate_post(request):
             status='Pending'
         )
         
-        process_generation.delay(task.id, platforms)
+        start_generation_chain.delay(task.id, platforms)
         
         return Response({'task_id': task.id, 'status': 'Pending'})
         

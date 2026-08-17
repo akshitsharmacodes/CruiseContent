@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 import { PageTransition } from '../../components/ui/PageTransition';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,10 +10,11 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
-import axios from 'axios';
+import useApi from '../../hooks/useApi';
 
 export default function TwitterSetup() {
   const navigate = useNavigate();
+  const api = useApi();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     api_key: '',
@@ -22,9 +24,20 @@ export default function TwitterSetup() {
     account_name: ''
   });
 
-  const handleOAuthLogin = () => {
-    // Redirect to backend OAuth endpoint (not fully implemented yet as per plan, but route exists)
-    window.location.href = 'http://localhost:8000/api/platform/twitter/login/';
+  const handleOAuthLogin = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('platform/twitter/login/');
+      if (response.data && response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        toast.error("Failed to get Twitter login URL");
+        setLoading(false);
+      }
+    } catch (error) {
+      toast.error("Failed to initialize Twitter login");
+      setLoading(false);
+    }
   };
 
   const handleManualSubmit = async (e) => {
@@ -32,7 +45,7 @@ export default function TwitterSetup() {
     setLoading(true);
     
     try {
-      await axios.post('http://localhost:8000/api/platform/twitter/connect-manual/', formData);
+      await api.post('platform/twitter/connect-manual/', formData);
       toast.success("Successfully connected Twitter Account!");
       navigate('/platforms');
     } catch (error) {
@@ -53,8 +66,8 @@ export default function TwitterSetup() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Platforms
               </Button>
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-sky-50 rounded-xl">
-                  <MessageCircle className="w-8 h-8 text-sky-500" />
+                <div className="p-3 bg-slate-100 rounded-xl">
+                  <FaXTwitter className="w-8 h-8 text-slate-900" />
                 </div>
                 <h1 className="text-4xl font-semibold tracking-tight text-foreground">Twitter / X Setup</h1>
               </div>
@@ -147,8 +160,8 @@ export default function TwitterSetup() {
                 </TabsContent>
 
                 <TabsContent value="oauth" className="space-y-6 pt-4 pb-8 flex flex-col items-center text-center">
-                  <div className="bg-sky-50 p-6 rounded-full mb-4">
-                    <MessageCircle className="w-12 h-12 text-sky-500" />
+                  <div className="bg-slate-100 p-6 rounded-full mb-4">
+                    <FaXTwitter className="w-12 h-12 text-slate-900" />
                   </div>
                   <div className="space-y-2 max-w-sm">
                     <h3 className="font-medium text-lg">Login with Twitter</h3>
@@ -158,8 +171,9 @@ export default function TwitterSetup() {
                   </div>
                   
                   <motion.div whileTap={{ scale: 0.98 }}>
-                    <Button onClick={handleOAuthLogin} className="bg-sky-500 hover:bg-sky-600 text-white px-8 mt-4">
-                      Connect via Twitter
+                    <Button onClick={handleOAuthLogin} className="bg-slate-900 hover:bg-slate-800 text-white px-8 mt-4">
+                      <FaXTwitter className="w-4 h-4 mr-2" />
+                      Connect via X
                     </Button>
                   </motion.div>
                 </TabsContent>

@@ -11,6 +11,7 @@ import {
 import { motion } from 'framer-motion';
 import { FaGithub, FaLinkedin, FaFacebook, FaKey, FaCreditCard, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { TrustedByMarquee, InteractiveDemo, BentoGrid, FAQSection } from '@/components/LandingComponents';
 
 export default function Landing() {
   const fadeInUp = {
@@ -105,6 +106,8 @@ export default function Landing() {
         </motion.div>
       </section>
 
+      <TrustedByMarquee />
+
       {/* Workflow Section */}
       <section id="workflow" className="py-24 px-6 lg:px-12 border-t border-border/50 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl -z-10" />
@@ -168,59 +171,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Services/Features Section */}
-      <section id="services" className="py-24 bg-secondary/30 px-6 lg:px-12 border-t border-border/50">
-        <div className="max-w-6xl mx-auto">
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={fadeInUp}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight mb-4">Everything you need to scale.</h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">We've ripped out the complex integrations so you can focus strictly on what matters: your brand's voice.</p>
-          </motion.div>
+      <InteractiveDemo />
 
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8"
-          >
-            <motion.div variants={fadeInUp} className="bg-card border border-border/50 hover:border-primary/30 transition-colors p-8 rounded-2xl flex flex-col items-start shadow-sm hover:shadow-md">
-              <div className="p-3 bg-secondary rounded-xl mb-6">
-                <Sparkles className="w-6 h-6 text-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">AI Generation</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Powered by cutting edge AI, we analyze your raw thoughts or blog URLs and generate platform-optimized posts automatically.
-              </p>
-            </motion.div>
-            
-            <motion.div variants={fadeInUp} className="bg-card border border-border/50 hover:border-primary/30 transition-colors p-8 rounded-2xl flex flex-col items-start shadow-sm hover:shadow-md">
-              <div className="p-3 bg-secondary rounded-xl mb-6">
-                <CheckCircle2 className="w-6 h-6 text-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">Context Injection</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Tell us about your business once. We inject your operational hours, services, and brand tone into every single post.
-              </p>
-            </motion.div>
-
-            <motion.div variants={fadeInUp} className="bg-card border border-border/50 hover:border-primary/30 transition-colors p-8 rounded-2xl flex flex-col items-start shadow-sm hover:shadow-md">
-              <div className="p-3 bg-secondary rounded-xl mb-6">
-                <Clock className="w-6 h-6 text-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">Cross-Platform</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Generate for Twitter, Facebook, and Instagram simultaneously. Review them side-by-side and publish with one click.
-              </p>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
+      <BentoGrid />
 
       {/* Testimonials Section */}
       <section id="testimonials" className="py-24 px-6 lg:px-12 border-t border-border/50 relative overflow-hidden">
@@ -469,6 +422,8 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      <FAQSection />
 
       {/* Fat Footer */}
       <footer className="border-t border-border/50 pt-20 pb-10 px-6 lg:px-12 bg-secondary/20">

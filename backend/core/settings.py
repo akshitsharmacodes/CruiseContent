@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal']
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -41,7 +41,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
-    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -61,7 +60,6 @@ INSTALLED_APPS = [
     'platform_routing',
     'dashboard_api',
     'payments',
-    'channels',
 ]
 
 MIDDLEWARE = [
@@ -93,13 +91,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
-ASGI_APPLICATION = 'core.asgi.application'
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

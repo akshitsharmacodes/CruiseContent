@@ -130,7 +130,7 @@ class OpenRouterService(BaseAIService):
         }
         
         payload = {
-            "model": "meta-llama/llama-3-8b-instruct:free",
+            "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -208,7 +208,7 @@ class OllamaService(BaseAIService):
             "prompt": user_prompt,
             "stream": False
         }
-        response = requests.post(self.base_url, json=payload, timeout=120)
+        response = requests.post(self.base_url, json=payload, timeout=600)
         response.raise_for_status()
         data = response.json()
         return data.get("response", "").strip()
@@ -261,6 +261,102 @@ class OllamaService(BaseAIService):
         return response.content
 
 
+class NvidiaService(BaseAIService):
+    def __init__(self):
+        import os
+        from django.conf import settings
+        self.api_key = getattr(settings, 'NVIDIA_API_KEY', os.environ.get('NVIDIA_API_KEY'))
+        if not self.api_key:
+            raise ValueError("NVIDIA_API_KEY is not set.")
+        
+        from openai import OpenAI
+        self.client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=self.api_key
+        )
+
+    def generate_text(self, system_prompt: str, user_prompt: str) -> str:
+        import time
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                completion = self.client.chat.completions.create(
+                    model="nvidia/nemotron-3-ultra-550b-a55b",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=1,
+                    top_p=0.95,
+                    max_tokens=16384,
+                    extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":16384},
+                    stream=True
+                )
+                
+                result_content = []
+                for chunk in completion:
+                    if not chunk.choices:
+                        continue
+                    if chunk.choices[0].delta.content is not None:
+                        result_content.append(chunk.choices[0].delta.content)
+                
+                return "".join(result_content).strip()
+            except Exception as e:
+                last_error = e
+                time.sleep(5 * (attempt + 1))
+        
+        raise last_error
+
+    def classify_intent(self, user_input: str, business_context: str) -> dict:
+        import json
+        system_prompt = (
+            "You are a classification engine. You must output STRICTLY valid JSON with no markdown formatting. "
+            "Extract the following from the user's input and business context: "
+            "'persona' (e.g. Dentist, Advocate, Tech Expert), "
+            "'goal' (e.g. Engagement, Conversion, Education), "
+            "'tone' (e.g. Professional, Casual, Urgent), "
+            "'format' (e.g. Storytelling, Q&A, Direct Pitch)."
+        )
+        user_prompt = f"Business Context: {business_context}\n\nUser Input: {user_input}"
+        
+        result_text = self.generate_text(system_prompt, user_prompt)
+        
+        try:
+            clean_text = result_text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+        except json.JSONDecodeError:
+            return {
+                "persona": "Social Media Manager",
+                "goal": "Brand Awareness",
+                "tone": "Engaging",
+                "format": "Standard Post"
+            }
+
+    def generate_image_prompt(self, post_text: str, user_prompt: str = None) -> str:
+        system_prompt = (
+            "You are an expert image prompt generator. Your task is to read a social media post "
+            "and an optional base image prompt from the user. You must create a single, highly detailed, "
+            "optimized prompt for an AI image generator (like Stable Diffusion) that captures the essence of the post "
+            "while strictly following the user's base prompt. Do not include conversational text, just the prompt."
+        )
+
+        user_content = f"Post: {post_text}"
+        if user_prompt:
+            user_content += f"\nUser's Base Prompt: {user_prompt}"
+            
+        return self.generate_text(system_prompt, user_content)
+
+    def generate_image(self, prompt: str) -> bytes:
+        import urllib.parse
+        import requests
+        encoded_prompt = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        return response.content
+
+
 class AIServiceFactory:
     @staticmethod
     def get_service(provider: str = "gemini") -> BaseAIService:
@@ -270,4 +366,6 @@ class AIServiceFactory:
             return OpenRouterService()
         elif provider.lower() == "ollama":
             return OllamaService()
+        elif provider.lower() == "nvidia":
+            return NvidiaService()
         raise ValueError(f"Unknown AI provider: {provider}")

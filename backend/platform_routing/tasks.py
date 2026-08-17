@@ -4,6 +4,7 @@ from .models import SocialPost, GeneratedImage
 from workspaces.models import PlatformAccount
 from .services import AIServiceFactory
 from .instagram import InstagramAdapter
+from .evolution import publish_to_whatsapp
 import logging
 
 logger = logging.getLogger(__name__)
@@ -169,3 +170,85 @@ def publish_to_twitter_task(self, post_id: str):
         post.status = 'FAILED'
         post.error_message = str(e)
         post.save()
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def publish_to_whatsapp_task(self, post_id: str):
+    try:
+        logger.info(f"========== STARTING WHATSAPP PUBLISH {post_id} ==========")
+        post = SocialPost.objects.get(id=post_id)
+        account = post.platform_account
+        
+        media_url = None
+        if post.image:
+            media_url = f"{settings.SITE_URL}{post.image.image.url}" if hasattr(settings, 'SITE_URL') else f"http://localhost:8000{post.image.image.url}"
+            
+        instance_name = account.account_id
+        
+        # Determine target audience (for now, default to broadcast)
+        # Here we could extract from DB, but currently using default
+        result = publish_to_whatsapp(post_id, instance_name, post.content, media_url=media_url)
+        
+        if result.get("success"):
+            post.status = 'SUCCESS'
+            post.platform_post_id = result.get("data", {}).get("messageId", "")
+            post.save()
+            logger.info(f"========== COMPLETED WHATSAPP PUBLISH {post_id} ==========")
+        else:
+            post.status = 'FAILED'
+            post.error_message = result.get("error", "Unknown error")
+            post.save()
+            raise Exception(post.error_message) # Trigger retry if temporary
+            
+    except Exception as e:
+        logger.error(f"[ERROR in WhatsApp Publish task for {post_id}]: {str(e)}", exc_info=True)
+        # Avoid overriding the retry exception if it was explicitly raised
+        if not hasattr(post, 'status') or post.status != 'FAILED':
+            post.status = 'FAILED'
+            post.error_message = str(e)
+            post.save()
+        raise e
+
+@shared_task
+def process_scheduled_posts():
+    """
+    Celery Beat task to sweep for scheduled posts that are due.
+    """
+    from django.utils import timezone
+    from .models import SocialPost
+
+    now = timezone.now()
+    logger.info(f"========== RUNNING SCHEDULED POSTS SWEEP AT {now} ==========")
+    
+    # Find posts that are scheduled and the scheduled time has passed or is now
+    due_posts = SocialPost.objects.filter(status='SCHEDULED', scheduled_for__lte=now)
+    
+    count = due_posts.count()
+    if count == 0:
+        logger.info("No scheduled posts due at this time.")
+        return
+
+    logger.info(f"Found {count} scheduled post(s) to process.")
+    
+    for post in due_posts:
+        # Mark as PENDING immediately so another concurrent sweep doesn't pick it up
+        post.status = 'PENDING'
+        post.save(update_fields=['status'])
+        
+        platform = post.platform_account.platform
+        
+        if platform == 'INSTAGRAM':
+            publish_to_instagram_task.delay(post.id)
+        elif platform == 'FACEBOOK_PAGE':
+            publish_to_facebook_task.delay(post.id)
+        elif platform == 'TWITTER':
+            publish_to_twitter_task.delay(post.id)
+        elif platform == 'WHATSAPP':
+            publish_to_whatsapp_task.delay(post.id)
+        else:
+            logger.error(f"Unsupported platform {platform} for scheduled post {post.id}")
+            post.status = 'FAILED'
+            post.error_message = f"Unsupported platform: {platform}"
+            post.save(update_fields=['status', 'error_message'])
+            
+    logger.info("========== COMPLETED SCHEDULED POSTS SWEEP ==========")
+

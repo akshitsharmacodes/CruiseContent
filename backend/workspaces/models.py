@@ -30,6 +30,7 @@ class PlatformAccount(models.Model):
         ('LINKEDIN', 'LinkedIn'),
         ('INSTAGRAM', 'Instagram'),
         ('PINTEREST', 'Pinterest'),
+        ('WHATSAPP', 'WhatsApp'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -45,7 +46,7 @@ class PlatformAccount(models.Model):
 
 class BusinessProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="business_profile")
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="business_profile")
     owner_name = models.CharField(max_length=255, blank=True, null=True)
     business_name = models.CharField(max_length=255, blank=True, null=True)
     established_date = models.DateField(blank=True, null=True)

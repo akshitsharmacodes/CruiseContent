@@ -28,6 +28,7 @@ class PostVariation(models.Model):
     platform = models.CharField(max_length=50) # e.g. "FACEBOOK_PAGE"
     content = models.TextField(help_text="The AI generated copy")
     media_url = models.URLField(max_length=1000, blank=True, null=True, help_text="Generated image URL")
+    scheduled_for = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.platform} variation for Post {self.post.id}"

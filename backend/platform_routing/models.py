@@ -17,6 +17,7 @@ class GeneratedImage(models.Model):
 class SocialPost(models.Model):
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
+        ('SCHEDULED', 'Scheduled'),
         ('SUCCESS', 'Success'),
         ('FAILED', 'Failed'),
     ]
@@ -26,6 +27,7 @@ class SocialPost(models.Model):
     content = models.TextField()
     image = models.ForeignKey(GeneratedImage, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    scheduled_for = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True, null=True)
     platform_post_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
