@@ -2,9 +2,28 @@
 .env
 .env.local
 .env.*
+backend/.env
+backend/.env.*
+
+# Local development tooling and helper files
+.agents/
+.vscode/
+.idea/
+scratch/
+DESIGN.md
+start_dev.ps1
+stert_dev.ps1
+backend/docker-compose.evolution.yml
+backend/test_*.py
+backend/*.sqlite3
+backend/*.db
+backend/.venv/
+backend/venv/
+backend/.env/
 
 # Node modules
 node_modules/
+frontend/node_modules/
 
 # Python
 __pycache__/
@@ -19,23 +38,40 @@ env/
 # Build and dist
 build/
 dist/
+frontend/dist/
 *.egg-info/
 .DS_Store
 
 # Database
 db.sqlite3
 db.sqlite3-journal
+backend/db.sqlite3
+backend/db.sqlite3-journal
 
-# Media / Uploads
+# Media / Static / Uploads
 media/
 backend/media/
+backend/static/
+backend/media/generated_images/
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat-schedule.dir
+celerybeat-schedule.dat
+celerybeat-schedule.bak
+celerybeat.pid
+backend/celerybeat-schedule*
+
+# Scratch / Temporary
+*.tmp
+*.temp
+*.local
 
 # Logs
 *.log
 logs/
 
 # IDEs and Editors
-.vscode/
-.idea/
 *.swp
 *.swo

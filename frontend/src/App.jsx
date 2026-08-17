@@ -19,6 +19,8 @@ import PlatformsDashboard from './pages/platforms/PlatformsDashboard';
 import MetaSetup from './pages/platforms/MetaSetup';
 import TwitterSetup from './pages/platforms/TwitterSetup';
 
+import ChatTest from './pages/ChatTest';
+
 import AppLayout from './components/AppLayout';
 
 const ProtectedRoute = ({ children }) => {
@@ -45,6 +47,7 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         
+        <Route path="/chat-test" element={<ChatTest />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
