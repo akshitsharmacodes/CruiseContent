@@ -4,7 +4,6 @@ from .models import SocialPost, GeneratedImage
 from workspaces.models import PlatformAccount
 from .services import AIServiceFactory
 from .instagram import InstagramAdapter
-from .evolution import publish_to_whatsapp
 import logging
 
 logger = logging.getLogger(__name__)
@@ -171,42 +170,103 @@ def publish_to_twitter_task(self, post_id: str):
         post.error_message = str(e)
         post.save()
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+@shared_task(bind=True, max_retries=3)
 def publish_to_whatsapp_task(self, post_id: str):
+    from workspaces.models import WhatsAppIntegration
+    from core.encryption import decrypt_token
+    from .providers.whatsapp import MetaWhatsAppProvider
+    from django.conf import settings
+    
     try:
         logger.info(f"========== STARTING WHATSAPP PUBLISH {post_id} ==========")
         post = SocialPost.objects.get(id=post_id)
-        account = post.platform_account
+        workspace = post.platform_account.workspace
+        
+        integration = WhatsAppIntegration.objects.filter(workspace=workspace).first()
+        
+        if not integration:
+            post.status = 'FAILED'
+            post.error_message = "WhatsApp integration is not connected for this workspace."
+            post.save()
+            logger.error(f"WhatsApp publish failed: {post.error_message}")
+            return
+            
+        if not integration.is_active:
+            post.status = 'FAILED'
+            post.error_message = "WhatsApp integration is disconnected. Please reconnect."
+            post.save()
+            logger.error(f"WhatsApp publish failed: {post.error_message}")
+            return
+            
+        try:
+            system_user_token = decrypt_token(integration.encrypted_system_user_token)
+        except Exception:
+            post.status = 'FAILED'
+            post.error_message = "Failed to decrypt WhatsApp credentials. Please reconnect."
+            post.save()
+            logger.error("WhatsApp publish failed: Decryption error.")
+            return
+            
+        provider = MetaWhatsAppProvider(
+            phone_number_id=integration.phone_number_id, 
+            access_token=system_user_token
+        )
         
         media_url = None
         if post.image:
             media_url = f"{settings.SITE_URL}{post.image.image.url}" if hasattr(settings, 'SITE_URL') else f"http://localhost:8000{post.image.image.url}"
             
-        instance_name = account.account_id
+        target_number = getattr(post, 'target_recipient', None)
+        if not target_number:
+            post.status = 'FAILED'
+            post.error_message = "No legitimate recipient exists for this WhatsApp post. Please configure a recipient."
+            post.save()
+            logger.error(f"WhatsApp publish failed: {post.error_message}")
+            return
         
-        # Determine target audience (for now, default to broadcast)
-        # Here we could extract from DB, but currently using default
-        result = publish_to_whatsapp(post_id, instance_name, post.content, media_url=media_url)
+        if media_url:
+            result = provider.send_media(target_number, post.content, media_url)
+        else:
+            result = provider.send_text(target_number, post.content)
         
         if result.get("success"):
             post.status = 'SUCCESS'
-            post.platform_post_id = result.get("data", {}).get("messageId", "")
+            post.platform_post_id = result.get("data", {}).get("messages", [{}])[0].get("id", "")
             post.save()
             logger.info(f"========== COMPLETED WHATSAPP PUBLISH {post_id} ==========")
         else:
             post.status = 'FAILED'
-            post.error_message = result.get("error", "Unknown error")
+            post.error_message = "Meta API publishing failed. Please check your credentials and configuration."
             post.save()
-            raise Exception(post.error_message) # Trigger retry if temporary
+            
+            status_code = result.get("status_code")
+            is_transient = status_code in [408, 429] or (status_code and status_code >= 500) or not status_code
+            
+            if is_transient:
+                logger.warning(f"Transient Meta API failure (HTTP {status_code}). Retrying...")
+                raise self.retry(countdown=2 ** self.request.retries)
+            else:
+                logger.error(f"Permanent Meta API failure (HTTP {status_code}). Not retrying.")
+                return
             
     except Exception as e:
-        logger.error(f"[ERROR in WhatsApp Publish task for {post_id}]: {str(e)}", exc_info=True)
-        # Avoid overriding the retry exception if it was explicitly raised
+        # Ignore Retry exceptions so they propagate normally to Celery
+        from celery.exceptions import Retry
+        if isinstance(e, Retry):
+            raise
+            
+        error_str = str(e)
+        if 'system_user_token' in locals() and system_user_token and system_user_token in error_str:
+            error_str = error_str.replace(system_user_token, "[REDACTED_TOKEN]")
+            
+        logger.error(f"[ERROR in WhatsApp Publish task for {post_id}]: {error_str}", exc_info=True)
         if not hasattr(post, 'status') or post.status != 'FAILED':
             post.status = 'FAILED'
-            post.error_message = str(e)
+            post.error_message = error_str
             post.save()
-        raise e
+            
+        # Unhandled exceptions could be transient (e.g. DB goes away)
+        raise self.retry(exc=e, countdown=2 ** self.request.retries)
 
 @shared_task
 def process_scheduled_posts():

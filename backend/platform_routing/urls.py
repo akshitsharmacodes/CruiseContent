@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     PublishPostView, PublishPostStatusView, FacebookLoginView, FacebookCallbackView, ConnectManualFacebookView,
     GetConnectedPlatformsView, ConnectManualTwitterView, TwitterLoginView, TwitterCallbackView, DisconnectPlatformView,
-    ScheduledPostsView, ScheduledPostDetailView, WhatsAppGetQRView, WhatsAppWebhookView
+    ScheduledPostsView, ScheduledPostDetailView,
+    MetaWhatsAppConnectView, MetaWhatsAppTestView, MetaWhatsAppStatusView, MetaWhatsAppDisconnectView
 )
 
 urlpatterns = [
@@ -21,6 +22,9 @@ urlpatterns = [
     path('twitter/callback/', TwitterCallbackView.as_view(), name='twitter_callback'),
     path('twitter/connect-manual/', ConnectManualTwitterView.as_view(), name='connect_manual_twitter'),
     
-    path('whatsapp/qr/', WhatsAppGetQRView.as_view(), name='whatsapp_qr'),
-    path('whatsapp/webhook/', WhatsAppWebhookView.as_view(), name='whatsapp_webhook'),
+    # Meta WhatsApp BYOK Endpoints
+    path('whatsapp/connect/', MetaWhatsAppConnectView.as_view(), name='whatsapp_connect'),
+    path('whatsapp/test/', MetaWhatsAppTestView.as_view(), name='whatsapp_test'),
+    path('whatsapp/status/', MetaWhatsAppStatusView.as_view(), name='whatsapp_status'),
+    path('whatsapp/disconnect/', MetaWhatsAppDisconnectView.as_view(), name='whatsapp_disconnect'),
 ]

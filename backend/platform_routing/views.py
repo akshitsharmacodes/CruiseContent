@@ -512,45 +512,106 @@ class ScheduledPostDetailView(APIView):
         post.delete()
         return Response({"message": "Scheduled post cancelled successfully."}, status=status.HTTP_200_OK)
 
-from .evolution import create_instance
 
-class WhatsAppGetQRView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        workspace = request.user.current_workspace
-        if not workspace:
-            return Response({"error": "No active workspace."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        result = create_instance(workspace.id)
-        if result.get("success"):
-            return Response({"qr_code": result["qr_code"]}, status=status.HTTP_200_OK)
-        return Response({"error": result.get("error", "Unknown error")}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class WhatsAppWebhookView(APIView):
-    permission_classes = [AllowAny]
-    
+from workspaces.models import WhatsAppIntegration
+from core.encryption import encrypt_token, decrypt_token
+from .providers.whatsapp import MetaWhatsAppProvider
+
+class MetaWhatsAppConnectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request):
-        data = request.data
-        event = data.get("event")
-        instance = data.get("instance")
-        
-        # Evolution API sends CONNECTION_UPDATE when status changes
-        if event == "connection.update":
-            state = data.get("data", {}).get("state")
-            if state == "open":
-                # Connection established
-                workspace_id = instance.replace("workspace_", "")
-                workspace = Workspace.objects.filter(id=workspace_id).first()
-                if workspace:
-                    PlatformAccount.objects.update_or_create(
-                        workspace=workspace,
-                        platform='WHATSAPP',
-                        defaults={
-                            'account_id': instance,
-                            'access_token': 'evolution_api_token', # Or store instance_name
-                            'name': 'WhatsApp'
-                        }
-                    )
-        return Response({"status": "received"}, status=status.HTTP_200_OK)
+        user = request.user
+        if not user.current_workspace:
+            return Response({"error": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone_number_id = request.data.get("phone_number_id")
+        business_account_id = request.data.get("business_account_id")
+        system_user_token = request.data.get("system_user_token")
+
+        if not all([phone_number_id, business_account_id, system_user_token]):
+            return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate with Meta before saving
+        provider = MetaWhatsAppProvider(phone_number_id=phone_number_id, access_token=system_user_token)
+        if not provider.validate_connection():
+            return Response({"error": "Failed to validate credentials with Meta API"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            encrypted_token = encrypt_token(system_user_token)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        integration, created = WhatsAppIntegration.objects.update_or_create(
+            workspace=user.current_workspace,
+            defaults={
+                "phone_number_id": phone_number_id,
+                "business_account_id": business_account_id,
+                "encrypted_system_user_token": encrypted_token,
+                "is_active": True
+            }
+        )
+
+        return Response({"message": "WhatsApp connected successfully."}, status=status.HTTP_200_OK)
+
+class MetaWhatsAppTestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not user.current_workspace:
+            return Response({"error": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+
+        integration = WhatsAppIntegration.objects.filter(workspace=user.current_workspace).first()
+        if not integration:
+            return Response({"error": "WhatsApp integration not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            system_user_token = decrypt_token(integration.encrypted_system_user_token)
+        except ValueError as e:
+            return Response({"error": "Failed to decrypt token. Please reconnect."}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = MetaWhatsAppProvider(phone_number_id=integration.phone_number_id, access_token=system_user_token)
+        if provider.validate_connection():
+            integration.is_active = True
+            integration.save(update_fields=['is_active'])
+            return Response({"message": "Connection is valid"}, status=status.HTTP_200_OK)
+        else:
+            integration.is_active = False
+            integration.save(update_fields=['is_active'])
+            return Response({"error": "Connection is invalid"}, status=status.HTTP_400_BAD_REQUEST)
+
+class MetaWhatsAppStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if not user.current_workspace:
+            return Response({"error": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+
+        integration = WhatsAppIntegration.objects.filter(workspace=user.current_workspace).first()
+        if not integration:
+            return Response({"is_connected": False}, status=status.HTTP_200_OK)
+
+        return Response({
+            "is_connected": True,
+            "is_active": integration.is_active,
+            "phone_number_id": integration.phone_number_id,
+            "business_account_id": integration.business_account_id
+        }, status=status.HTTP_200_OK)
+
+class MetaWhatsAppDisconnectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        if not user.current_workspace:
+            return Response({"error": "No active workspace"}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted_count, _ = WhatsAppIntegration.objects.filter(workspace=user.current_workspace).delete()
+        if deleted_count > 0:
+            return Response({"message": "WhatsApp integration disconnected"}, status=status.HTTP_200_OK)
+        return Response({"error": "WhatsApp integration not found"}, status=status.HTTP_404_NOT_FOUND)
+
 

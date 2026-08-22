@@ -37,7 +37,7 @@ const AVAILABLE_PLATFORMS = [
     route: '/platforms/whatsapp',
     color: 'text-green-600',
     bg: 'bg-green-50',
-    description: 'Connect your WhatsApp using Evolution API to publish Statuses and Broadcasts.'
+    description: 'Connect your Meta WhatsApp Business API to publish messages.'
   }
 ];
 

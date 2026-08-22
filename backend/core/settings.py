@@ -189,3 +189,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'django-insecure-development-jwt-key-c
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'test_key')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'test_secret')
 RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', 'test_webhook_secret')
+
+# WhatsApp Settings
+WHATSAPP_ENCRYPTION_KEY = os.environ.get('WHATSAPP_ENCRYPTION_KEY')
+META_API_VERSION = os.environ.get('META_API_VERSION', 'v19.0')

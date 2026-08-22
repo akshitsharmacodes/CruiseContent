@@ -60,3 +60,19 @@ class BusinessProfile(models.Model):
 
     def __str__(self):
         return f"{self.business_name} ({self.user.email})"
+
+class WhatsAppIntegration(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="whatsapp_integration")
+    phone_number_id = models.CharField(max_length=255)
+    business_account_id = models.CharField(max_length=255)
+    
+    # Encrypted System User Token
+    encrypted_system_user_token = models.BinaryField()
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"WhatsApp for {self.workspace.name} ({self.phone_number_id})"
