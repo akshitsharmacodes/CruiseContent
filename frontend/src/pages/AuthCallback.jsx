@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, Ship } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 
 
 const AuthCallback = () => {
@@ -30,7 +31,7 @@ const AuthCallback = () => {
 
       try {
         // 2. Send the code to our Django backend to exchange for custom JWTs
-        const response = await fetch('http://localhost:8000/api/auth/google/callback/', {
+        const response = await fetch(`${API_BASE_URL}/api/auth/google/callback/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -48,7 +49,7 @@ const AuthCallback = () => {
           
           // 4. Check if onboarding is required
           try {
-            const profileRes = await fetch('http://localhost:8000/api/workspaces/profile/', {
+            const profileRes = await fetch(`${API_BASE_URL}/api/workspaces/profile/`, {
               headers: {
                 'Authorization': `Bearer ${data.access_token}`
               }

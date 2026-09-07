@@ -11,6 +11,23 @@ from .tasks import send_welcome_email
 
 User = get_user_model()
 
+
+def _set_refresh_cookie(response, refresh_token):
+    """Set the HttpOnly refresh token cookie with environment-driven security settings.
+
+    In production (COOKIE_SECURE=True, COOKIE_SAMESITE=None) this produces:
+      Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=None
+    which is required for cross-origin HTTPS requests from Vercel → Render.
+    """
+    response.set_cookie(
+        key='refresh_token',
+        value=refresh_token,
+        httponly=True,
+        secure=getattr(settings, 'COOKIE_SECURE', False),
+        samesite=getattr(settings, 'COOKIE_SAMESITE', 'Lax'),
+        max_age=7 * 24 * 60 * 60,  # 7 days
+    )
+
 class GoogleLoginView(APIView):
     """
     Returns the Google OAuth login URL for the frontend to redirect to.
@@ -87,28 +104,21 @@ class GoogleCallbackView(APIView):
 
         # Generate custom JWTs
         access, refresh = generate_tokens_for_user(user, profile)
-        
-        response = Response({'access_token': access})
-        # Set refresh token as HttpOnly cookie
-        response.set_cookie(
-            key='refresh_token', 
-            value=refresh, 
-            httponly=True, 
-            samesite='Lax',
-            max_age=7*24*60*60 # 7 days
-        )
-        
+
+        response = Response({'access_token': access, 'refresh_token': refresh})
+        _set_refresh_cookie(response, refresh)
         return response
 
 
 class TokenRefreshView(APIView):
     """
-    Takes the HttpOnly refresh cookie and returns a new access token.
+    Takes the HttpOnly refresh cookie (or optional request body) and returns a new access token.
+    Preserves HttpOnly refresh-token cookie as the primary mechanism.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = request.COOKIES.get('refresh_token')
+        refresh_token = request.COOKIES.get('refresh_token') or request.data.get('refresh_token')
         if not refresh_token:
             return Response({'error': 'No refresh token provided'}, status=status.HTTP_401_UNAUTHORIZED)
             
@@ -116,19 +126,15 @@ class TokenRefreshView(APIView):
             payload = decode_token(refresh_token, token_type='refresh')
             user_id = payload.get('user_id')
             user = User.objects.get(id=user_id)
-            profile = user.profile
+            if not user.is_active:
+                return Response({'error': 'User account is inactive'}, status=status.HTTP_401_UNAUTHORIZED)
+            profile, _ = ClientProfile.objects.get_or_create(user=user)
             
             # Generate new tokens
             access, refresh = generate_tokens_for_user(user, profile)
-            
-            response = Response({'access_token': access})
-            response.set_cookie(
-                key='refresh_token', 
-                value=refresh, 
-                httponly=True, 
-                samesite='Lax',
-                max_age=7*24*60*60
-            )
+
+            response = Response({'access_token': access, 'refresh_token': refresh})
+            _set_refresh_cookie(response, refresh)
             return response
             
         except Exception as e:
@@ -148,20 +154,27 @@ class LogoutView(APIView):
 class StandardLoginView(APIView):
     """
     Standard email/password login that issues custom JWTs and sets HttpOnly refresh token.
+    Supports case-insensitive email lookup with secure password checking.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
+        email = (request.data.get('email') or '').strip()
         password = request.data.get('password')
 
         if not email or not password:
             return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # We're using email as the username in our custom auth backend
+        # Authenticate with email as username
         user = authenticate(username=email, password=password)
         
+        # Case-insensitive fallback if exact natural key failed
         if not user:
+            candidate = User.objects.filter(email__iexact=email).first() or User.objects.filter(username__iexact=email).first()
+            if candidate and candidate.check_password(password) and candidate.is_active:
+                user = candidate
+
+        if not user or not user.is_active:
             return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Ensure profile exists
@@ -170,14 +183,8 @@ class StandardLoginView(APIView):
         # Generate tokens
         access, refresh = generate_tokens_for_user(user, profile)
 
-        response = Response({'access_token': access})
-        response.set_cookie(
-            key='refresh_token', 
-            value=refresh, 
-            httponly=True, 
-            samesite='Lax',
-            max_age=7*24*60*60
-        )
+        response = Response({'access_token': access, 'refresh_token': refresh})
+        _set_refresh_cookie(response, refresh)
         return response
 
 
@@ -188,13 +195,13 @@ class StandardSignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
+        email = (request.data.get('email') or '').strip()
         password = request.data.get('password')
 
         if not email or not password:
             return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             return Response({'error': 'A user with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Create user
@@ -208,12 +215,69 @@ class StandardSignupView(APIView):
         # Generate tokens
         access, refresh = generate_tokens_for_user(user, profile)
 
-        response = Response({'access_token': access})
-        response.set_cookie(
-            key='refresh_token', 
-            value=refresh, 
-            httponly=True, 
-            samesite='Lax',
-            max_age=7*24*60*60
-        )
+        response = Response({'access_token': access, 'refresh_token': refresh})
+        _set_refresh_cookie(response, refresh)
         return response
+
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from .tasks import send_password_reset_email
+
+class PasswordResetRequestView(APIView):
+    """
+    Accepts an email and sends a password reset link.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = User.objects.filter(email=email).first()
+        if user:
+            token_generator = PasswordResetTokenGenerator()
+            token = token_generator.make_token(user)
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Use frontend URL instead of generating a backend URL
+            # Note: This should ideally come from settings, hardcoded to standard local frontend for now
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            reset_url = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
+            
+            # Asynchronous email sending
+            send_password_reset_email.delay(user.email, reset_url)
+            
+        # Return success regardless of whether user exists to prevent email enumeration
+        return Response({'message': 'If an account exists with this email, a password reset link has been sent.'})
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Accepts token, uidb64, and new_password to reset the password.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uidb64 = request.data.get('uidb64')
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        
+        if not all([uidb64, token, new_password]):
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+            
+        if user is not None:
+            token_generator = PasswordResetTokenGenerator()
+            if token_generator.check_token(user, token):
+                user.set_password(new_password)
+                user.save()
+                return Response({'message': 'Password has been reset successfully.'})
+                
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)

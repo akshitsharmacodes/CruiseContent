@@ -3,6 +3,7 @@ import useApi from '../../hooks/useApi';
 import { toast } from 'sonner';
 import { Loader2, CalendarClock, Edit2, X, Check, LayoutGrid, Clock, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { getMediaUrl } from '../../lib/api';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 
 import {
@@ -133,7 +134,7 @@ export default function ScheduledQueueDrawer({ trigger }) {
             {post.account_name && <p className="text-xs text-muted-foreground font-medium mb-1">{post.account_name}</p>}
           </div>
           {post.image_url && (
-            <img src={`http://localhost:8000${post.image_url}`} alt="preview" className="w-12 h-12 rounded object-cover border border-border" />
+            <img src={getMediaUrl(post.image_url)} alt="preview" className="w-12 h-12 rounded object-cover border border-border" />
           )}
         </div>
 
@@ -190,9 +191,11 @@ export default function ScheduledQueueDrawer({ trigger }) {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        {trigger}
-      </SheetTrigger>
+      {trigger ? (
+        <SheetTrigger render={trigger} />
+      ) : (
+        <SheetTrigger />
+      )}
       <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0 border-l border-border bg-background">
         <div className="p-6 pb-4 border-b border-border flex-shrink-0 bg-muted/30">
           <SheetHeader>

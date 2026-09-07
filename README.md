@@ -37,7 +37,7 @@ graph TD
 
     subgraph "Django Backend Core"
         API["Django REST API"]:::backend
-        DB["SQLite Database"]:::db
+        DB["Neon PostgreSQL"]:::db
     end
 
     subgraph "Asynchronous Workers"
@@ -151,14 +151,28 @@ erDiagram
 
 To get this project running locally on your machine, you must strictly follow these steps in order. Ensure you have Docker, Python (3.11+), and Node.js installed.
 
-### 1. Start the Redis Broker
+### 1. Configure Environment Variables
+
+```powershell
+# Backend
+cd backend
+copy .env.example .env
+# Edit .env and fill in your API keys (leave DATABASE_URL empty to use SQLite locally)
+
+# Frontend
+cd ../frontend
+copy .env.example .env.local
+# VITE_API_BASE_URL=http://localhost:8000 (already set — no change needed for local dev)
+```
+
+### 2. Start the Redis Broker
 Celery depends on Redis for the task queue. We use Docker to spin up a local instance:
 ```powershell
 # Run from any terminal
 docker run -p 6379:6379 redis
 ```
 
-### 2. Setup the Backend (Django + Celery)
+### 3. Setup the Backend (Django + Celery)
 Open a new terminal window, navigate to the `backend/` folder, and setup the Python virtual environment:
 ```powershell
 cd backend
@@ -182,7 +196,7 @@ Open another terminal, navigate to `backend/`, activate the venv again, and star
 python -m celery -A core worker -l info --pool=solo
 ```
 
-### 3. Setup the Frontend (Vite)
+### 4. Setup the Frontend (Vite)
 Open a final terminal window, navigate to the `frontend/` directory, install Node modules, and start the development server:
 ```powershell
 cd frontend
@@ -193,11 +207,93 @@ The frontend will be available at `http://localhost:5173`.
 
 ---
 
+## 🚀 Production Deployment
+
+### Stack
+| Layer | Provider |
+|---|---|
+| Frontend | [Vercel](https://vercel.com) |
+| Backend API | [Render](https://render.com) (Web Service) |
+| Database | [Neon](https://neon.tech) (PostgreSQL) |
+| Redis / Celery Broker | Render Redis / Upstash / Aiven |
+| Celery Worker | Render (Background Worker) |
+| Celery Beat | Render (Background Worker) |
+| Media Storage | [Cloudinary](https://cloudinary.com) |
+
+### Backend — Render Setup
+
+1. Create a **Web Service** on Render pointing to the `backend/` directory.
+2. Set the following in the service settings:
+
+   | Field | Value |
+   |---|---|
+   | **Build Command** | `pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput` |
+   | **Start Command** | `gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2` |
+   | **Root Directory** | `backend` |
+
+3. Add a **Celery Worker** Background Worker:
+   - Build: `pip install -r requirements.txt`
+   - Start: `celery -A core worker -l info --concurrency 2`
+
+4. Add a **Celery Beat** Background Worker:
+   - Build: `pip install -r requirements.txt && python manage.py migrate`
+   - Start: `celery -A core beat -l info`
+
+5. Set all **Environment Variables** from the table below.
+
+### Backend Environment Variables (Render)
+
+| Variable | Required | Description |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | ✅ | 50+ char random string |
+| `DJANGO_DEBUG` | ✅ | `False` |
+| `DATABASE_URL` | ✅ | Neon PostgreSQL connection string |
+| `REDIS_URL` | ✅ | Redis connection string |
+| `ALLOWED_HOSTS` | ✅ | `your-service.onrender.com` |
+| `FRONTEND_URL` | ✅ | `https://your-app.vercel.app` |
+| `SITE_URL` | ✅ | `https://your-render-service.onrender.com` |
+| `JWT_SECRET` | ✅ | 50+ char random string |
+| `COOKIE_SECURE` | ✅ | `True` |
+| `COOKIE_SAMESITE` | ✅ | `None` |
+| `CLOUDINARY_CLOUD_NAME` | ✅ | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | ✅ | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | ✅ | Cloudinary API secret |
+| `WHATSAPP_ENCRYPTION_KEY` | if WhatsApp used | 32-byte Fernet key |
+| `GEMINI_API_KEY` | if using Gemini | AI generation key |
+| `RAZORPAY_*` | if payments used | Razorpay credentials |
+| `GOOGLE_CLIENT_*` | if OAuth used | Google OAuth credentials |
+| `FACEBOOK_APP_*` | if Meta used | Facebook app credentials |
+
+See [`backend/.env.example`](backend/.env.example) for the full list.
+
+### Frontend — Vercel Setup
+
+1. Import the repo in [Vercel](https://vercel.com/new).
+2. Set **Root Directory** to `frontend`.
+3. Set **Framework Preset** to `Vite`.
+4. Add the following **Environment Variable**:
+
+   | Variable | Value |
+   |---|---|
+   | `VITE_API_BASE_URL` | `https://your-render-service.onrender.com` |
+
+The `frontend/vercel.json` already includes SPA routing rewrites so React Router works on page refresh.
+
+### Health Check
+After deploying, verify the backend is healthy:
+```bash
+curl https://your-render-service.onrender.com/api/health/
+# Expected: {"status": "ok", "db": "ok"}
+```
+
+---
+
 ## 🔒 Security & Git Hygiene Standards
 
-- **Environment Variables**: Never hardcode API keys. Place them in `.env` inside `backend/`. 
+- **Environment Variables**: Never hardcode API keys. Place them in `.env` inside `backend/` (never committed). See `backend/.env.example` for all required variables.
 - **CORS & Auth**: The API relies entirely on custom JWTs (`accounts/authentication.py`). We have explicitly stripped `SessionAuthentication` from DRF to prevent CSRF bugs when passing `credentials: include`.
-- **Git Ignore**: `db.sqlite3`, `backend/media/`, `backend/static/`, `frontend/node_modules/`, and `frontend/dist/` are strictly `.gitignore`'d. Do not push databases or large user assets to the repository.
+- **Cookie Security**: In production, refresh cookies are set with `HttpOnly; Secure; SameSite=None` for cross-origin HTTPS (Vercel → Render). In development, `SameSite=Lax` with no `Secure` flag is used. This is controlled by `COOKIE_SECURE` and `COOKIE_SAMESITE` environment variables.
+- **Git Ignore**: `db.sqlite3`, `backend/media/`, `backend/staticfiles/`, `frontend/node_modules/`, and `frontend/dist/` are strictly `.gitignore`'d. Do not push databases or large user assets to the repository.
 
 ---
 

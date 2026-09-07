@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../lib/api';
 
 import {
   Table,
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/auth/admin/users/', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/admin/users/`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
   const handleTierChange = async (userId, newTier) => {
     setUpdating(userId);
     try {
-      const res = await fetch(`http://localhost:8000/api/auth/admin/users/${userId}/tier/`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/admin/users/${userId}/tier/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

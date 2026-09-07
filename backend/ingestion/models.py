@@ -21,6 +21,7 @@ class ContentSource(models.Model):
 
 class GenerationTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, null=True, blank=True, related_name="generation_tasks")
     status = models.CharField(max_length=20, default='Pending') # Pending, Processing, Completed, Failed
     input_type = models.CharField(max_length=20) # text, image, url
     input_data = models.TextField(blank=True, null=True)

@@ -47,7 +47,7 @@ export default function Navbar() {
               className="flex items-center gap-3 cursor-pointer"
             >
               <Ship className="w-6 h-6 text-primary" />
-              <span className="text-xl font-bold tracking-tight text-foreground">CruiseContent</span>
+              <span className="text-xl font-bold tracking-tight text-foreground">SofricAI</span>
               <span className="hidden sm:inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive border border-destructive/20 ml-2">
                 <Activity className="w-3 h-3 mr-1" /> Dev Mode
               </span>
@@ -96,23 +96,25 @@ export default function Navbar() {
                 </Link> */}
 
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <motion.div 
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="cursor-pointer shrink-0"
-                    >
-                      <Avatar className="h-9 w-9 border-2 border-primary/20 hover:border-primary/50 transition-all">
-                        <AvatarImage 
-                          src={user.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
-                          referrerPolicy="no-referrer"
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    </motion.div>
-                  </DropdownMenuTrigger>
+                  <DropdownMenuTrigger
+                    render={
+                      <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="cursor-pointer shrink-0"
+                      >
+                        <Avatar className="h-9 w-9 border-2 border-primary/20 hover:border-primary/50 transition-all">
+                          <AvatarImage 
+                            src={user.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
+                            referrerPolicy="no-referrer"
+                          />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </motion.div>
+                    }
+                  />
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />

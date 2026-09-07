@@ -17,12 +17,16 @@ import ReviewEditor from '../components/features/ReviewEditor';
 import ScheduledQueueDrawer from '../components/features/ScheduledQueueDrawer';
 
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   useOnboardingCheck();
   const navigate = useNavigate();
+  const { can } = useAuth();
+  const canCreatePost = can('SOCIAL_MEDIA_MANAGER', 'POSTS', 'CREATE');
 
   const [inputData, setInputData] = useState({ text: '', url: '', image: null });
+
   const [imagePrompt, setImagePrompt] = useState('');
   const [generateImage, setGenerateImage] = useState(true);
   const [platforms, setPlatforms] = useState([]);
@@ -183,14 +187,25 @@ export default function Dashboard() {
               )}
             </div>
             
-            <Button 
-              onClick={handleGenerate} 
-              disabled={status === 'Pending' || status === 'Processing'}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
-            >
-              {(status === 'Pending' || status === 'Processing') && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Generate Posts
-            </Button>
+            {canCreatePost ? (
+              <Button 
+                onClick={handleGenerate} 
+                disabled={status === 'Pending' || status === 'Processing'}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
+              >
+                {(status === 'Pending' || status === 'Processing') && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Generate Posts
+              </Button>
+            ) : (
+              <Button 
+                disabled
+                variant="secondary"
+                className="rounded-full px-6 opacity-60 cursor-not-allowed"
+                title="Your assigned role does not permit creating posts"
+              >
+                Creation Restricted
+              </Button>
+            )}
           </CardFooter>
         </Card>
 

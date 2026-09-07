@@ -49,9 +49,9 @@ def generate_text_task(self, task_id, platforms):
             logger.warning(f"Task {task_id} not found in DB yet, retrying...")
             raise self.retry(exc=e, countdown=2 ** self.request.retries)
         
-        from workspaces.models import User, BusinessProfile, Workspace
+        from workspaces.models import BusinessProfile, Workspace
         context = ""
-        workspace = Workspace.objects.first()
+        workspace = task.workspace or Workspace.objects.first()
         if workspace:
             try:
                 profile = workspace.business_profile
@@ -61,7 +61,7 @@ def generate_text_task(self, task_id, platforms):
         
         from platform_routing.services import AIServiceFactory
         try:
-            provider = getattr(settings, 'AI_PROVIDER', 'gemini')
+            provider = getattr(settings, 'AI_PROVIDER', 'nvidia')
             ai_service = AIServiceFactory.get_service(provider)
         except ValueError as e:
             raise Exception(f"Failed to load AI Service: {e}")
@@ -70,6 +70,7 @@ def generate_text_task(self, task_id, platforms):
         if ai_service:
             try:
                 classification = ai_service.classify_intent(task.input_data, context)
+                logger.info(f"Intent classified: {classification}")
             except Exception as e:
                 logger.error(f"[ERROR in Classification]: {e}")
                 classification = {
@@ -79,42 +80,37 @@ def generate_text_task(self, task_id, platforms):
                     "format": "Standard Post"
                 }
 
-        async def fetch_all_platforms():
-            async def fetch_one(platform):
-                if not ai_service:
-                    return platform, None
+        generated_results = {}
+        for platform in platforms:
+            if not ai_service:
+                continue
+            
+            logger.info(f"--> Generating content for platform: {platform}")
+            platform_instruction = f"Make this post highly optimized and engaging for {platform}."
+            if platform.lower() == 'twitter':
+                platform_instruction += " Keep it under 280 chars."
+            elif platform.lower() == 'instagram':
+                platform_instruction += " Include 8 trending hashtags."
+            elif platform.lower() == 'linkedin':
+                platform_instruction += " Professional tone."
+            elif platform.lower() == 'facebook':
+                platform_instruction += " Conversational and engaging."
+
+            system_prompt = (
+                f"You are a {classification.get('persona', 'Social Media Manager')}. "
+                f"Goal: {classification.get('goal', 'Brand Awareness')}. Tone: {classification.get('tone', 'Engaging')}.\n\n"
+                f"Business Context: {context}\nTARGET PLATFORM: {platform.upper()}\n"
+                f"OUTPUT FORMATTING: strictly the final post text."
+            )
+            user_prompt = f"--- SOURCE CONTENT ---\n{task.input_data}\n\n--- PLATFORM RULES ---\n{platform_instruction}"
+            
+            try:
+                res = ai_service.generate_text(system_prompt, user_prompt)
+                generated_results[platform] = res
+                logger.info(f"✓ Generated content for {platform}: {res[:60]}...")
+            except Exception as e:
+                logger.error(f"[ERROR in Text Generation for {platform}]: {str(e)}")
                 
-                platform_instruction = f"Make this post highly optimized and engaging for {platform}."
-                if platform.lower() == 'twitter':
-                    platform_instruction += " Keep it under 280 chars."
-                elif platform.lower() == 'instagram':
-                    platform_instruction += " Include 8 trending hashtags."
-                elif platform.lower() == 'linkedin':
-                    platform_instruction += " Professional tone."
-                elif platform.lower() == 'facebook':
-                    platform_instruction += " Conversational and engaging."
-
-                system_prompt = (
-                    f"You are a {classification.get('persona', 'Social Media Manager')}. "
-                    f"Goal: {classification.get('goal', 'Brand Awareness')}. Tone: {classification.get('tone', 'Engaging')}.\n\n"
-                    f"Business Context: {context}\nTARGET PLATFORM: {platform.upper()}\n"
-                    f"OUTPUT FORMATTING: strictly the final post text."
-                )
-                user_prompt = f"--- SOURCE CONTENT ---\n{task.input_data}\n\n--- PLATFORM RULES ---\n{platform_instruction}"
-                
-                try:
-                    res = await asyncio.to_thread(ai_service.generate_text, system_prompt, user_prompt)
-                    return platform, res
-                except Exception as e:
-                    logger.error(f"[ERROR in Text Generation for {platform}]: {str(e)}")
-                    return platform, None
-
-            tasks = [fetch_one(p) for p in platforms]
-            return await asyncio.gather(*tasks)
-
-        results_list = asyncio.run(fetch_all_platforms())
-        generated_results = {p: res for p, res in results_list if res is not None}
-        
         if not generated_results:
             raise Exception("Failed to generate text content for any platforms.")
 
@@ -139,16 +135,15 @@ def generate_image_task(self, context_data):
         image_url = None
         image_error = None
         
-        from workspaces.models import User, Workspace
+        from workspaces.models import Workspace
         from platform_routing.services import AIServiceFactory
         from platform_routing.models import GeneratedImage
         from django.core.files.base import ContentFile
         
-        user = User.objects.first()
-        target_workspace = (user.current_workspace if user and hasattr(user, 'current_workspace') else None) or Workspace.objects.first()
+        target_workspace = task.workspace or Workspace.objects.first()
         
         try:
-            provider = getattr(settings, 'AI_PROVIDER', 'gemini')
+            provider = getattr(settings, 'AI_PROVIDER', 'nvidia')
             ai_service = AIServiceFactory.get_service(provider)
         except Exception as e:
             ai_service = None
@@ -162,7 +157,11 @@ def generate_image_task(self, context_data):
                 if task.user_image_prompt:
                     base_image_context += f" Specific request: {task.user_image_prompt}"
                 
+                logger.info(f"Creating image prompt with AI provider: {provider}")
                 image_prompt = ai_service.generate_image_prompt(first_content, base_image_context)
+                logger.info(f"Image prompt formulated: {image_prompt[:100]}...")
+                
+                logger.info("Calling image generation service...")
                 image_bytes = ai_service.generate_image(image_prompt)
                 
                 gen_image = GeneratedImage.objects.create(
@@ -173,6 +172,7 @@ def generate_image_task(self, context_data):
                 file_name = f"{task.id}_preview.png"
                 gen_image.image.save(file_name, ContentFile(image_bytes))
                 image_url = gen_image.image.url
+                logger.info(f"✓ Image saved successfully: {image_url}")
             except Exception as e:
                 image_error = str(e)
                 logger.error(f"[ERROR in Image Generation]: {image_error}")

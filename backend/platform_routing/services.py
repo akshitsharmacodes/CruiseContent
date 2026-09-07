@@ -274,6 +274,7 @@ class NvidiaService(BaseAIService):
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=self.api_key
         )
+        self.model = "nvidia/nemotron-3-super-120b-a12b"
 
     def generate_text(self, system_prompt: str, user_prompt: str) -> str:
         import time
@@ -282,34 +283,30 @@ class NvidiaService(BaseAIService):
         for attempt in range(max_retries):
             try:
                 completion = self.client.chat.completions.create(
-                    model="nvidia/nemotron-3-ultra-550b-a55b",
+                    model=self.model,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    temperature=1,
+                    temperature=0.7,
                     top_p=0.95,
-                    max_tokens=16384,
-                    extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":16384},
-                    stream=True
+                    max_tokens=1024,
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}}
                 )
                 
-                result_content = []
-                for chunk in completion:
-                    if not chunk.choices:
-                        continue
-                    if chunk.choices[0].delta.content is not None:
-                        result_content.append(chunk.choices[0].delta.content)
-                
-                return "".join(result_content).strip()
+                content = completion.choices[0].message.content or ""
+                if "</think>" in content:
+                    content = content.split("</think>")[-1].strip()
+                return content.strip()
             except Exception as e:
                 last_error = e
-                time.sleep(5 * (attempt + 1))
+                time.sleep(2 * (attempt + 1))
         
         raise last_error
 
     def classify_intent(self, user_input: str, business_context: str) -> dict:
         import json
+        import re
         system_prompt = (
             "You are a classification engine. You must output STRICTLY valid JSON with no markdown formatting. "
             "Extract the following from the user's input and business context: "
@@ -320,12 +317,16 @@ class NvidiaService(BaseAIService):
         )
         user_prompt = f"Business Context: {business_context}\n\nUser Input: {user_input}"
         
-        result_text = self.generate_text(system_prompt, user_prompt)
-        
         try:
+            result_text = self.generate_text(system_prompt, user_prompt)
+            # Match { ... } block
+            match = re.search(r'\{[^{}]*"persona"[^{}]*\}', result_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            
             clean_text = result_text.replace("```json", "").replace("```", "").strip()
             return json.loads(clean_text)
-        except json.JSONDecodeError:
+        except Exception:
             return {
                 "persona": "Social Media Manager",
                 "goal": "Brand Awareness",
@@ -350,7 +351,7 @@ class NvidiaService(BaseAIService):
     def generate_image(self, prompt: str) -> bytes:
         import urllib.parse
         import requests
-        encoded_prompt = urllib.parse.quote(prompt)
+        encoded_prompt = urllib.parse.quote(prompt[:300])
         url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
         response = requests.get(url, timeout=60)
         response.raise_for_status()
@@ -359,13 +360,17 @@ class NvidiaService(BaseAIService):
 
 class AIServiceFactory:
     @staticmethod
-    def get_service(provider: str = "gemini") -> BaseAIService:
-        if provider.lower() == "gemini":
-            return GeminiService()
-        elif provider.lower() == "openrouter":
-            return OpenRouterService()
-        elif provider.lower() == "ollama":
-            return OllamaService()
-        elif provider.lower() == "nvidia":
+    def get_service(provider: str = None) -> BaseAIService:
+        if not provider:
+            provider = getattr(settings, 'AI_PROVIDER', 'nvidia')
+        provider_lower = provider.lower()
+        if provider_lower == "nvidia":
             return NvidiaService()
+        elif provider_lower == "gemini":
+            return GeminiService()
+        elif provider_lower == "openrouter":
+            return OpenRouterService()
+        elif provider_lower == "ollama":
+            return OllamaService()
         raise ValueError(f"Unknown AI provider: {provider}")
+

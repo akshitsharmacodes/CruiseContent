@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { LogOut, Save, User as UserIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../lib/api';
 
 const Profile = () => {
   const { user, tier, accessToken, logout } = useAuth();
@@ -21,7 +22,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/workspaces/profile/', {
+        const res = await fetch(`${API_BASE_URL}/api/workspaces/profile/`, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         if (res.ok) {
@@ -51,7 +52,7 @@ const Profile = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('http://localhost:8000/api/workspaces/profile/', {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/profile/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

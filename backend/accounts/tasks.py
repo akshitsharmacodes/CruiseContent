@@ -46,3 +46,43 @@ def send_welcome_email(user_email, user_name):
     )
     
     return f"Sent welcome email to {user_email}"
+
+@shared_task
+def send_password_reset_email(user_email, reset_url):
+    """
+    Sends a password reset email to the user.
+    """
+    subject = "Reset your SofricAI Password"
+    
+    html_message = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f4f5; padding: 40px; color: #18181b;">
+            <div style="max-w-xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+                <h1 style="color: #3b82f6; font-size: 24px; margin-bottom: 20px;">Password Reset Request</h1>
+                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                    We received a request to reset your SofricAI password. Click the button below to choose a new password.
+                </p>
+                <a href="{reset_url}" style="display: inline-block; background-color: #18181b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    Reset Password
+                </a>
+                <p style="font-size: 14px; color: #71717a; margin-top: 20px;">
+                    If you did not request this, please ignore this email.
+                </p>
+            </div>
+        </body>
+    </html>
+    """
+    
+    plain_message = strip_tags(html_message)
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'hello@sofricai.com')
+    
+    send_mail(
+        subject,
+        plain_message,
+        from_email,
+        [user_email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+    
+    return f"Sent password reset email to {user_email}"

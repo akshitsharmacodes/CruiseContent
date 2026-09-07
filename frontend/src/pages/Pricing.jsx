@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Check, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../lib/api';
 
 const TIERS = [
   {
@@ -47,7 +48,7 @@ export default function Pricing() {
     setLoading(tierName);
     
     try {
-      const res = await fetch('http://localhost:8000/api/payments/create-order/', {
+      const res = await fetch(`${API_BASE_URL}/api/payments/create-order/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +81,7 @@ export default function Pricing() {
         order_id: orderData.order_id,
         handler: async function (response) {
           try {
-            const verifyRes = await fetch('http://localhost:8000/api/payments/verify/', {
+            const verifyRes = await fetch(`${API_BASE_URL}/api/payments/verify/`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

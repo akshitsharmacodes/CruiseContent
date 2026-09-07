@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +15,25 @@ import { FaXTwitter } from "react-icons/fa6";
 import { TrustedByMarquee, InteractiveDemo, BentoGrid, FAQSection } from '@/components/LandingComponents';
 
 export default function Landing() {
+  const { user, adminLevel, currentWorkspaceId } = useAuth();
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (adminLevel === 'MASTER' || adminLevel === 'ADMIN') {
+      navigate('/admin');
+      return;
+    }
+    if (currentWorkspaceId) {
+      navigate('/dashboard');
+      return;
+    }
+    navigate('/onboarding');
+  };
+
   const fadeInUp = {
     hidden: { opacity: 0, y: 40 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
@@ -78,16 +98,21 @@ export default function Landing() {
           </motion.p>
           
           <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
-            <Link to="/signup">
-              <Button size="lg" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 h-14 text-base shadow-xl shadow-primary/20 transition-all hover:-translate-y-1">
-                Get Started Now <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto rounded-full px-8 h-14 text-base border-border hover:bg-secondary transition-all">
-                View Demo
-              </Button>
-            </Link>
+            <Button 
+              onClick={handleGetStarted} 
+              size="lg" 
+              className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 h-14 text-base shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 cursor-pointer"
+            >
+              Get Started Now <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
+            <Button 
+              onClick={handleGetStarted}
+              variant="outline" 
+              size="lg" 
+              className="w-full sm:w-auto rounded-full px-8 h-14 text-base border-border hover:bg-secondary transition-all cursor-pointer"
+            >
+              View Demo
+            </Button>
           </motion.div>
         </motion.div>
         
@@ -330,7 +355,7 @@ export default function Landing() {
                   <li key={i} className="flex items-center text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-primary mr-3 shrink-0" />{feature}</li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full rounded-full h-12">Get Started</Button>
+              <Button variant="outline" className="w-full rounded-full h-12 cursor-pointer" onClick={handleGetStarted}>Get Started</Button>
             </motion.div>
             
             {/* Pro */}
@@ -346,7 +371,7 @@ export default function Landing() {
                   <li key={i} className="flex items-center text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-primary mr-3 shrink-0" />{feature}</li>
                 ))}
               </ul>
-              <Button className="w-full rounded-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20">Subscribe Now</Button>
+              <Button className="w-full rounded-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 cursor-pointer" onClick={handleGetStarted}>Subscribe Now</Button>
             </motion.div>
 
             {/* Enterprise */}
@@ -475,7 +500,7 @@ export default function Landing() {
           </div>
           
           <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <p>© 2026 CruiseContent. All rights reserved.</p>
+            <p>© 2026 SofricAI. All rights reserved.</p>
             <p className="flex items-center gap-1">Designed with <HeartIcon className="w-4 h-4 text-red-500" /> by Akshit</p>
           </div>
         </div>

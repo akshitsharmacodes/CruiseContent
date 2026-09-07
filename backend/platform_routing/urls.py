@@ -3,10 +3,21 @@ from .views import (
     PublishPostView, PublishPostStatusView, FacebookLoginView, FacebookCallbackView, ConnectManualFacebookView,
     GetConnectedPlatformsView, ConnectManualTwitterView, TwitterLoginView, TwitterCallbackView, DisconnectPlatformView,
     ScheduledPostsView, ScheduledPostDetailView,
-    MetaWhatsAppConnectView, MetaWhatsAppTestView, MetaWhatsAppStatusView, MetaWhatsAppDisconnectView
+    MetaWhatsAppConnectView, MetaWhatsAppTestView, MetaWhatsAppStatusView, MetaWhatsAppDisconnectView,
+    MetaWhatsAppWebhookView,
+    SocialPostListCreateView, SocialPostDetailView, SocialPostPublishActionView, SocialManagerAnalyticsView,
+    MultiPlatformGenerateView
 )
 
 urlpatterns = [
+    # Social Media Manager Core REST Endpoints
+    path('posts/', SocialPostListCreateView.as_view(), name='social_posts_list_create'),
+    path('posts/<uuid:post_id>/', SocialPostDetailView.as_view(), name='social_post_detail'),
+    path('posts/<uuid:post_id>/publish/', SocialPostPublishActionView.as_view(), name='social_post_publish_action'),
+    path('analytics/', SocialManagerAnalyticsView.as_view(), name='social_manager_analytics'),
+    path('generate-multi/', MultiPlatformGenerateView.as_view(), name='social_generate_multi'),
+
+    # Existing Publishing & Scheduling Endpoints
     path('publish/', PublishPostView.as_view(), name='publish_post'),
     path('publish/status/<uuid:post_id>/', PublishPostStatusView.as_view(), name='publish_post_status'),
     path('scheduled/', ScheduledPostsView.as_view(), name='scheduled_posts'),
@@ -27,4 +38,6 @@ urlpatterns = [
     path('whatsapp/test/', MetaWhatsAppTestView.as_view(), name='whatsapp_test'),
     path('whatsapp/status/', MetaWhatsAppStatusView.as_view(), name='whatsapp_status'),
     path('whatsapp/disconnect/', MetaWhatsAppDisconnectView.as_view(), name='whatsapp_disconnect'),
+    path('whatsapp/webhook/', MetaWhatsAppWebhookView.as_view(), name='whatsapp_webhook'),
 ]
+

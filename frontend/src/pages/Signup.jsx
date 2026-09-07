@@ -9,6 +9,7 @@ import GoogleSignIn from '@/components/GoogleSignIn';
 import AuthCarousel from '@/components/AuthCarousel';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../lib/api';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -21,15 +22,16 @@ export default function Signup() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/signup/', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        credentials: 'include', // Ensures HttpOnly refresh_token cookie is accepted and stored
+        body: JSON.stringify({ email: email.trim(), password }),
       });
       const data = await response.json();
       
       if (response.ok) {
-        handleLoginSuccess(data.access_token);
+        handleLoginSuccess(data.access_token, data.refresh_token);
         navigate('/onboarding');
         toast.success("Account created successfully!");
       } else {

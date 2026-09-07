@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Edit2, Rss, Loader2, ServerCrash, Webhook, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { cn } from './Layout';
+import { API_BASE_URL } from './lib/api';
 
-const SOURCES_API_URL = 'http://localhost:8000/api/ingestion/sources/';
-const WORKSPACES_API_URL = 'http://localhost:8000/api/workspaces/';
+const SOURCES_API_URL = `${API_BASE_URL}/api/ingestion/sources/`;
+const WORKSPACES_API_URL = `${API_BASE_URL}/api/workspaces/`;
 
 export default function ContentSources() {
     const queryClient = useQueryClient();

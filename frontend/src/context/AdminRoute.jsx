@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminRoute({ children }) {
-  const { user, isLoading } = useAuth();
+  const { user, adminLevel, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -13,8 +13,8 @@ export default function AdminRoute({ children }) {
     );
   }
 
-  // Strictly protect the route for the Super Admin only
-  if (!user || user.email !== 'akshitsharmacodes@gmail.com') {
+  // Secure route for MASTER and ADMIN levels coming directly from backend JWT
+  if (!user || (adminLevel !== 'MASTER' && adminLevel !== 'ADMIN')) {
     return <Navigate to="/dashboard" replace />;
   }
 

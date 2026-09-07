@@ -4,6 +4,9 @@
 .env.*
 backend/.env
 backend/.env.*
+frontend/.env
+frontend/.env.local
+frontend/.env.*
 
 # Local development tooling and helper files
 .agents/
@@ -53,6 +56,9 @@ media/
 backend/media/
 backend/static/
 backend/media/generated_images/
+
+# WhiteNoise collected static files (generated on deploy — do not commit)
+backend/staticfiles/
 
 # Celery
 celerybeat-schedule

@@ -1,8 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { API_BASE_URL } from './lib/api';
 
 const fetchStatus = async () => {
-    const res = await fetch('http://localhost:8000/api/dashboard/status/');
+    const res = await fetch(`${API_BASE_URL}/api/dashboard/status/`);
     if (!res.ok) throw new Error('Network response was not ok');
     return res.json();
 };

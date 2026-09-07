@@ -7,13 +7,25 @@ def generate_tokens_for_user(user, profile):
     """Generates a short-lived access token and long-lived refresh token."""
     now = datetime.datetime.utcnow()
     
+    # Extract AdminProfile information safely
+    admin_level = None
+    admin_profile_id = None
+    try:
+        from .models import AdminProfile
+        admin_profile = AdminProfile.objects.filter(user=user, is_active=True).first()
+        if admin_profile:
+            admin_level = admin_profile.admin_level
+            admin_profile_id = str(admin_profile.id)
+    except Exception:
+        pass
+
     access_payload = {
         'user_id': str(user.id),
         'email': user.email,
-        'role': profile.role,
-        'tier': profile.tier,
-        'workspace_id': str(user.current_workspace.id) if user.current_workspace else None,
-        'picture': profile.profile_picture,
+        'workspace_id': str(user.current_workspace.id) if hasattr(user, 'current_workspace') and user.current_workspace else None,
+        'picture': profile.profile_picture if hasattr(profile, 'profile_picture') else None,
+        'admin_level': admin_level,
+        'admin_profile_id': admin_profile_id,
         'exp': now + datetime.timedelta(days=7),
         'iat': now,
         'type': 'access'

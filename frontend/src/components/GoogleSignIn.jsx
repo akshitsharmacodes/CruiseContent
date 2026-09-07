@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 
 const GoogleSignIn = ({ label = 'Continue with Google' }) => {
   const [loading, setLoading] = useState(false);
@@ -9,7 +10,7 @@ const GoogleSignIn = ({ label = 'Continue with Google' }) => {
   const handleLoginClick = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/google/login/');
+      const response = await fetch(`${API_BASE_URL}/api/auth/google/login/`);
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;

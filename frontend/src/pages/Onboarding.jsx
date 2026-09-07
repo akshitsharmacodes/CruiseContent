@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../lib/api';
 import {
   Questionnaire,
   QuestionnaireActions,
@@ -81,7 +82,7 @@ export default function Onboarding() {
     };
 
     try {
-      const response = await fetch('http://localhost:8000/api/onboard/', {
+      const response = await fetch(`${API_BASE_URL}/api/onboard/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

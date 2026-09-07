@@ -8,7 +8,9 @@ import { FaGithub, FaApple } from 'react-icons/fa';
 import GoogleSignIn from '@/components/GoogleSignIn';
 import AuthCarousel from '@/components/AuthCarousel';
 import { toast } from 'sonner';
+import { jwtDecode } from 'jwt-decode';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../lib/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,16 +23,28 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login/', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        credentials: 'include', // Ensures HttpOnly refresh_token cookie is accepted and stored
+        body: JSON.stringify({ email: email.trim(), password }),
       });
       const data = await response.json();
       
       if (response.ok) {
-        handleLoginSuccess(data.access_token);
-        navigate('/dashboard');
+        handleLoginSuccess(data.access_token, data.refresh_token);
+        
+        // Route ADMIN and MASTER to /admin, and normal users to /dashboard
+        try {
+          const decoded = jwtDecode(data.access_token);
+          if (decoded.admin_level === 'ADMIN' || decoded.admin_level === 'MASTER') {
+            navigate('/admin');
+          } else {
+            navigate('/dashboard');
+          }
+        } catch {
+          navigate('/dashboard');
+        }
         toast.success("Welcome back!");
       } else {
         toast.error(data.error || "Failed to sign in");

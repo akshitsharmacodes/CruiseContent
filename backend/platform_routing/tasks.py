@@ -214,7 +214,12 @@ def publish_to_whatsapp_task(self, post_id: str):
         
         media_url = None
         if post.image:
-            media_url = f"{settings.SITE_URL}{post.image.image.url}" if hasattr(settings, 'SITE_URL') else f"http://localhost:8000{post.image.image.url}"
+            img_url = post.image.image.url
+            # If Cloudinary is active, image.url is already absolute; otherwise prefix SITE_URL
+            if img_url.startswith('http'):
+                media_url = img_url
+            else:
+                media_url = f"{settings.SITE_URL}{img_url}"
             
         target_number = getattr(post, 'target_recipient', None)
         if not target_number:

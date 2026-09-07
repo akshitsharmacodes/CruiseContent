@@ -6,7 +6,118 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+interface SelectContextType {
+  labels: Record<string, string>;
+  registerLabel: (value: any, label: string) => void;
+}
+
+const SelectContext = React.createContext<SelectContextType>({
+  labels: {},
+  registerLabel: () => {},
+});
+
+function extractText(node: React.ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) {
+    return node.map(extractText).filter(Boolean).join(" ").trim();
+  }
+  if (React.isValidElement(node)) {
+    const props = node.props as Record<string, any> | undefined;
+    if (props?.children) {
+      return extractText(props.children);
+    }
+  }
+  return "";
+}
+
+function extractLabelsFromChildren(
+  children: React.ReactNode,
+  map: Record<string, string> = {}
+): Record<string, string> {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+
+    const props = child.props as Record<string, any> | undefined;
+    if (!props) return;
+
+    if (props.value !== undefined) {
+      const valStr = String(props.value);
+      if (props.label) {
+        map[valStr] = String(props.label);
+      } else {
+        const text = extractText(props.children);
+        if (text) {
+          map[valStr] = text;
+        }
+      }
+    }
+
+    if (props.children) {
+      extractLabelsFromChildren(props.children, map);
+    }
+  });
+
+  return map;
+}
+
+function Select<Value = any, Multiple extends boolean | undefined = false>({
+  children,
+  items: itemsProp,
+  itemToStringLabel: itemToStringLabelProp,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const [registeredLabels, setRegisteredLabels] = React.useState<Record<string, string>>({});
+
+  const registerLabel = React.useCallback((value: any, label: string) => {
+    if (value === undefined || value === null || !label) return;
+    const key = String(value);
+    setRegisteredLabels((prev) => {
+      if (prev[key] === label) return prev;
+      return { ...prev, [key]: label };
+    });
+  }, []);
+
+  const extractedLabels = React.useMemo(() => {
+    return extractLabelsFromChildren(children);
+  }, [children]);
+
+  const mergedLabels = React.useMemo(() => {
+    const map: Record<string, string> = { ...extractedLabels, ...registeredLabels };
+    if (itemsProp && !Array.isArray(itemsProp)) {
+      Object.assign(map, itemsProp);
+    }
+    return map;
+  }, [extractedLabels, registeredLabels, itemsProp]);
+
+  const itemToStringLabel = React.useCallback(
+    (val: any) => {
+      if (val === undefined || val === null) return "";
+      const key = String(val);
+      if (itemToStringLabelProp) {
+        const custom = itemToStringLabelProp(val);
+        if (custom !== undefined) return custom;
+      }
+      if (mergedLabels[key] !== undefined) {
+        return mergedLabels[key];
+      }
+      return key;
+    },
+    [itemToStringLabelProp, mergedLabels]
+  );
+
+  return (
+    <SelectContext.Provider value={{ labels: mergedLabels, registerLabel }}>
+      <SelectPrimitive.Root
+        items={(itemsProp ?? mergedLabels) as any}
+        itemToStringLabel={itemToStringLabel}
+        {...props}
+      >
+        {children}
+      </SelectPrimitive.Root>
+    </SelectContext.Provider>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -18,14 +129,41 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({
+  className,
+  children,
+  ...props
+}: SelectPrimitive.Value.Props) {
+  const { labels } = React.useContext(SelectContext);
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
       {...props}
-    />
-  )
+    >
+      {(val: any) => {
+        if (typeof children === "function") {
+          return (children as any)(val);
+        }
+        if (children != null) {
+          return children;
+        }
+        if (val === null || val === undefined || val === "") {
+          return props.placeholder;
+        }
+        if (Array.isArray(val)) {
+          if (val.length === 0) return props.placeholder;
+          return val.map((v) => labels?.[String(v)] ?? String(v)).join(", ");
+        }
+        const key = String(val);
+        if (labels && labels[key] !== undefined) {
+          return labels[key];
+        }
+        return val;
+      }}
+    </SelectPrimitive.Value>
+  );
 }
 
 function SelectTrigger({
@@ -111,11 +249,24 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  label,
   ...props
-}: SelectPrimitive.Item.Props) {
+}: SelectPrimitive.Item.Props & { label?: string }) {
+  const { registerLabel } = React.useContext(SelectContext);
+
+  React.useEffect(() => {
+    if (props.value !== undefined) {
+      const text = label || (typeof children === "string" ? children : extractText(children));
+      if (text) {
+        registerLabel(props.value, text);
+      }
+    }
+  }, [props.value, label, children, registerLabel]);
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      label={label}
       className={cn(
         "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className

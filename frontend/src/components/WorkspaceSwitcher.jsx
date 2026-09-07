@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../lib/api';
 import { Check, ChevronsUpDown, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,27 +23,36 @@ import { useNavigate } from 'react-router-dom';
 export default function WorkspaceSwitcher({ className }) {
   const [open, setOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
-  const { accessToken, currentWorkspaceId } = useAuth();
+  const { accessToken, currentWorkspaceId, adminLevel } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchWorkspaces = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/workspaces/', {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setWorkspaces(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch workspaces", error);
+  const fetchWorkspaces = React.useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWorkspaces(data);
       }
-    };
-    if (accessToken) {
-      fetchWorkspaces();
+    } catch (error) {
+      console.error("Failed to fetch workspaces", error);
     }
   }, [accessToken]);
+
+  useEffect(() => {
+    fetchWorkspaces();
+
+    const handleUpdate = () => {
+      fetchWorkspaces();
+    };
+
+    window.addEventListener('workspace-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('workspace-updated', handleUpdate);
+    };
+  }, [fetchWorkspaces]);
 
   const handleSwitchWorkspace = async (workspaceId) => {
     if (workspaceId === currentWorkspaceId) {
@@ -51,7 +61,7 @@ export default function WorkspaceSwitcher({ className }) {
     }
     
     try {
-      const res = await fetch('http://localhost:8000/api/workspaces/switch/', {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/switch/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,8 +71,7 @@ export default function WorkspaceSwitcher({ className }) {
       });
       
       if (res.ok) {
-        // Reload page to re-fetch all active data for the new workspace
-        // This is a brutal but effective way to reset all state for now
+        window.dispatchEvent(new Event('workspace-updated'));
         window.location.reload(); 
       }
     } catch (error) {
@@ -73,7 +82,10 @@ export default function WorkspaceSwitcher({ className }) {
   const selectedWorkspace = workspaces.find(w => w.id === currentWorkspaceId);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (isOpen) fetchWorkspaces();
+    }}>
       <PopoverTrigger render={
         <Button
           variant="outline"
@@ -119,7 +131,11 @@ export default function WorkspaceSwitcher({ className }) {
               <CommandItem
                 onSelect={() => {
                   setOpen(false);
-                  navigate('/onboarding');
+                  if (adminLevel) {
+                    navigate('/admin/workspaces?action=create', { state: { openCreate: true } });
+                  } else {
+                    navigate('/onboarding');
+                  }
                 }}
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
