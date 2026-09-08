@@ -75,11 +75,11 @@ const SOFTWARE_DEFINITIONS = [
 export default function ClientSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
-  const { userSoftwareModules, userCustomRole } = useAuth();
+  const { userSoftwareModules, userCustomRole, adminLevel } = useAuth();
 
-  // Filter software definitions by user's effective entitlement + role access
+  // Filter software definitions by user's effective entitlement + role access (MASTER has all)
   const visibleSoftware = SOFTWARE_DEFINITIONS.filter(sw =>
-    userSoftwareModules.includes(sw.code)
+    adminLevel === 'MASTER' || userSoftwareModules.includes(sw.code)
   );
 
   return (
@@ -97,7 +97,7 @@ export default function ClientSidebar() {
               <Shield className="h-4 w-4 text-primary shrink-0" />
               <div className="truncate">
                 <p className="text-xs font-semibold truncate">
-                  {userCustomRole?.name || "Member"}
+                  {userCustomRole?.name || (adminLevel === 'MASTER' ? "Master Admin" : "Member")}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
                   {visibleSoftware.length} Software Entitled

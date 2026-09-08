@@ -163,6 +163,49 @@ class UserWorkspacePermissionsView(APIView):
 
     def get(self, request):
         user = request.user
+        admin_profile = getattr(user, 'admin_profile', None)
+
+        # 1. MASTER Admin: unrestricted global access across all software and features
+        if admin_profile and admin_profile.is_active and admin_profile.admin_level == 'MASTER':
+            from .software_registry import SOFTWARE_FEATURE_REGISTRY, get_available_software_for_workspace
+            workspace = getattr(user, 'current_workspace', None)
+            if workspace:
+                available_software = get_available_software_for_workspace(workspace)
+            else:
+                available_software = [
+                    {
+                        "code": sw_code,
+                        "name": sw_data["name"],
+                        "features": [
+                            {"code": f_code, "name": f_data["name"], "actions": list(f_data["actions"])}
+                            for f_code, f_data in sw_data["features"].items()
+                        ]
+                    }
+                    for sw_code, sw_data in SOFTWARE_FEATURE_REGISTRY.items()
+                ]
+
+            master_permissions = []
+            master_software_set = set()
+            for sw in available_software:
+                sw_code = sw["code"]
+                master_software_set.add(sw_code)
+                for feat in sw["features"]:
+                    master_permissions.append({
+                        "software": sw_code,
+                        "feature": feat["code"],
+                        "actions": list(feat["actions"])
+                    })
+
+            return Response({
+                "workspace_id": str(workspace.id) if workspace else None,
+                "workspace_name": workspace.name if workspace else None,
+                "workspace_status": workspace.status if workspace else "ACTIVE",
+                "role": "OWNER",
+                "custom_role": None,
+                "software_modules": sorted(list(master_software_set)),
+                "permissions": master_permissions
+            })
+
         workspace = getattr(user, 'current_workspace', None)
 
         if not workspace or workspace.status != 'ACTIVE':

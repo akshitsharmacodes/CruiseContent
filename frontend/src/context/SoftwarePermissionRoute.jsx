@@ -12,7 +12,7 @@ export default function SoftwarePermissionRoute({
   action,
   children
 }) {
-  const { user, isLoading, isLoadingPermissions, hasPermission, hasSoftwareAccess } = useAuth();
+  const { user, isLoading, isLoadingPermissions, hasPermission, hasSoftwareAccess, adminLevel } = useAuth();
   const location = useLocation();
 
   if (isLoading || isLoadingPermissions) {
@@ -25,6 +25,11 @@ export default function SoftwarePermissionRoute({
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // MASTER has unrestricted global access across all workspaces, software, and features
+  if (adminLevel === 'MASTER') {
+    return children;
   }
 
   // If specific software, feature, and action are specified

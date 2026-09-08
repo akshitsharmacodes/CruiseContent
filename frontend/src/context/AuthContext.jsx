@@ -173,6 +173,9 @@ export const AuthProvider = ({ children }) => {
    * hasPermission('SOCIAL_MEDIA_MANAGER', 'POSTS', 'CREATE') -> boolean
    */
   const hasPermission = useCallback((software, feature, action) => {
+    if (adminLevel === 'MASTER') {
+      return true;
+    }
     if (!userPermissions || userPermissions.length === 0) {
       return false;
     }
@@ -182,15 +185,18 @@ export const AuthProvider = ({ children }) => {
       Array.isArray(p.actions) &&
       p.actions.includes(action)
     );
-  }, [userPermissions]);
+  }, [adminLevel, userPermissions]);
 
   /**
    * Checks if user has access to at least one feature/action in a software module:
    * hasSoftwareAccess('SOCIAL_MEDIA_MANAGER') -> boolean
    */
   const hasSoftwareAccess = useCallback((software) => {
+    if (adminLevel === 'MASTER') {
+      return true;
+    }
     return userSoftwareModules.includes(software);
-  }, [userSoftwareModules]);
+  }, [adminLevel, userSoftwareModules]);
 
   const can = hasPermission;
 

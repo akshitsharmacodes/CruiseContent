@@ -13,6 +13,10 @@ class HasWorkspaceRole(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
+
+        admin_profile = getattr(request.user, 'admin_profile', None)
+        if admin_profile and admin_profile.is_active and admin_profile.admin_level == 'MASTER':
+            return True
             
         workspace = getattr(request.user, 'current_workspace', None)
         if not workspace:
@@ -41,6 +45,10 @@ class HasWorkspaceRole(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
+
+        admin_profile = getattr(request.user, 'admin_profile', None)
+        if admin_profile and admin_profile.is_active and admin_profile.admin_level == 'MASTER':
+            return True
             
         workspace = None
         if hasattr(obj, 'open_ai_key'): # It's a Workspace
@@ -137,8 +145,11 @@ def has_workspace_permission(user, workspace, software, feature, action):
     if action not in feat_match['actions']:
         return False
 
-    # 5. Check if user is an ADMIN with delegated AdminPermission and AdminWorkspaceAssignment
+    # 5. Check if user is MASTER or an ADMIN with delegated AdminPermission and AdminWorkspaceAssignment
     admin_profile = getattr(user, 'admin_profile', None)
+    if admin_profile and admin_profile.is_active and admin_profile.admin_level == 'MASTER':
+        return True
+
     if admin_profile and admin_profile.is_active and admin_profile.admin_level == 'ADMIN':
         from accounts.models import AdminWorkspaceAssignment, AdminPermission
         # Enforce workspace assignment boundary for ADMIN
