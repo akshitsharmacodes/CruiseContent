@@ -10,6 +10,8 @@ Never set DEBUG=True or commit SECRET_KEY in production.
 
 from pathlib import Path
 import os
+import ssl
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import dj_database_url
 from dotenv import load_dotenv
 
@@ -260,14 +262,44 @@ AUTH_USER_MODEL = 'workspaces.User'
 # Celery — Redis broker (REDIS_URL preferred, CELERY_BROKER_URL fallback)
 # ---------------------------------------------------------------------------
 
-_redis_url = (
+def _configure_redis_url(raw_url: str):
+    if not raw_url:
+        return 'redis://localhost:6379/0', None
+
+    parsed = urlparse(raw_url)
+    ssl_options = None
+
+    if parsed.scheme == 'rediss':
+        query_params = parse_qs(parsed.query, keep_blank_values=True)
+        if 'ssl_cert_reqs' not in query_params:
+            query_params['ssl_cert_reqs'] = ['CERT_REQUIRED']
+            new_query = urlencode(query_params, doseq=True)
+            parsed = parsed._replace(query=new_query)
+            raw_url = urlunparse(parsed)
+
+        ssl_options = {
+            'ssl_cert_reqs': ssl.CERT_REQUIRED,
+        }
+
+    return raw_url, ssl_options
+
+
+_raw_redis_url = (
     os.environ.get('REDIS_URL')
     or os.environ.get('CELERY_BROKER_URL')
     or 'redis://localhost:6379/0'
 )
 
-CELERY_BROKER_URL = _redis_url
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or _redis_url
+CELERY_BROKER_URL, _broker_ssl = _configure_redis_url(_raw_redis_url)
+
+_raw_result_backend = os.environ.get('CELERY_RESULT_BACKEND') or _raw_redis_url
+CELERY_RESULT_BACKEND, _backend_ssl = _configure_redis_url(_raw_result_backend)
+
+if _broker_ssl:
+    CELERY_BROKER_USE_SSL = _broker_ssl
+
+if _backend_ssl:
+    CELERY_REDIS_BACKEND_USE_SSL = _backend_ssl
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_ALWAYS_EAGER', 'False').lower() == 'true'
