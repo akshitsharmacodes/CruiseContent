@@ -55,6 +55,7 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://cruisecontent.onrender.com',
 ]
 if FRONTEND_URL and FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)

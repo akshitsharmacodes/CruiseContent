@@ -4,9 +4,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  ArrowRight, Sparkles, Ship, CheckCircle2, BarChart3, Clock, 
-  Image as ImageIcon, FileText, Send, User, Activity, 
+import {
+  ArrowRight, Sparkles, Ship, CheckCircle2, BarChart3, Clock,
+  Image as ImageIcon, FileText, Send, User, Activity,
   Star, Quote, MessageSquare
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -72,12 +72,12 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans relative">
-      
+
       {/* Hero Section */}
       <section className="flex-1 flex flex-col items-center justify-center px-6 pt-32 lg:pt-48 pb-24 text-center max-w-5xl mx-auto relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -z-10" />
-        
-        <motion.div 
+
+        <motion.div
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
@@ -87,45 +87,45 @@ export default function Landing() {
             <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
             Now powered by GPT-4o & OpenRouter
           </motion.div>
-          
+
           <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl font-bold tracking-tighter mb-6 text-foreground leading-[1.1]">
-            Social media on <br className="hidden md:block"/>
+            Social media on <br className="hidden md:block" />
             <span className="text-muted-foreground italic font-serif bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/50">absolute autopilot.</span>
           </motion.h1>
-          
+
           <motion.p variants={fadeInUp} className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
             The editorial-grade automation suite for modern brands. Generate, refine, and deploy cross-platform content directly from your raw thoughts.
           </motion.p>
-          
+
           <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
-            <Button 
-              onClick={handleGetStarted} 
-              size="lg" 
+            <Button
+              onClick={handleGetStarted}
+              size="lg"
               className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 h-14 text-base shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 cursor-pointer"
             >
               Get Started Now <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
-            <Button 
+            <Button
               onClick={handleGetStarted}
-              variant="outline" 
-              size="lg" 
+              variant="outline"
+              size="lg"
               className="w-full sm:w-auto rounded-full px-8 h-14 text-base border-border hover:bg-secondary transition-all cursor-pointer"
             >
               View Demo
             </Button>
           </motion.div>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
           className="mt-24 w-full rounded-2xl overflow-hidden border border-border/50 shadow-2xl relative bg-card"
         >
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-          <img 
-            src="/hero_landing.png" 
-            alt="CruiseContent Dashboard showing analytics and post generation" 
+          <img
+            src="/hero_landing.png"
+            alt="CruiseContent Dashboard showing analytics and post generation"
             className="w-full h-auto object-cover transform hover:scale-[1.02] transition-transform duration-1000"
           />
         </motion.div>
@@ -137,7 +137,7 @@ export default function Landing() {
       <section id="workflow" className="py-24 px-6 lg:px-12 border-t border-border/50 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl -z-10" />
         <div className="max-w-6xl mx-auto">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -148,7 +148,7 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">A seamless pipeline from raw idea to published masterpiece.</p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -204,7 +204,7 @@ export default function Landing() {
       <section id="testimonials" className="py-24 px-6 lg:px-12 border-t border-border/50 relative overflow-hidden">
         <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-primary/5 rounded-full blur-3xl -z-10" />
         <div className="max-w-6xl mx-auto">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -215,7 +215,7 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">See how modern brands are saving hours every single week.</p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -247,7 +247,7 @@ export default function Landing() {
       {/* Platforms & API Integration Section */}
       <section id="platforms" className="py-24 px-6 lg:px-12 border-t border-border/50 bg-background/50">
         <div className="max-w-6xl mx-auto">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -258,7 +258,7 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">Total transparency on platforms and AI model access.</p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -327,7 +327,7 @@ export default function Landing() {
       {/* Pricing Section */}
       <section id="pricing" className="py-24 bg-secondary/30 px-6 lg:px-12 border-t border-border/50">
         <div className="max-w-6xl mx-auto">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -338,7 +338,7 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">Start for free, scale when you need to.</p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -357,7 +357,7 @@ export default function Landing() {
               </ul>
               <Button variant="outline" className="w-full rounded-full h-12 cursor-pointer" onClick={handleGetStarted}>Get Started</Button>
             </motion.div>
-            
+
             {/* Pro */}
             <motion.div variants={fadeInUp} className="bg-card border-2 border-primary p-8 rounded-3xl shadow-xl shadow-primary/5 relative transform md:-translate-y-4">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
@@ -390,122 +390,105 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* About the Developer & Contact */}
+
+      {/* About the Founder & Products */}
       <section id="developer" className="py-24 px-6 lg:px-12 border-t border-border/50">
         <div className="max-w-6xl mx-auto">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
             className="grid md:grid-cols-2 gap-12 items-center"
           >
-            {/* Developer Card */}
-            <motion.div variants={fadeInUp} className="bg-card border border-border/50 rounded-3xl p-8 md:p-12 shadow-xl shadow-black/5 flex flex-col md:flex-row items-center gap-8 h-full">
+            {/* Founder Card */}
+            <motion.div
+              variants={fadeInUp}
+              className="bg-card border border-border/50 rounded-3xl p-8 md:p-12 shadow-xl shadow-black/5 flex flex-col md:flex-row items-center gap-8 h-full"
+            >
               <div className="w-32 h-32 shrink-0 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border-4 border-background shadow-inner">
                 <User className="w-16 h-16 text-primary/50" />
               </div>
+
               <div className="text-center md:text-left">
                 <div className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground mb-4">
-                  Founder & Developer
+                  Founder
                 </div>
-                <h2 className="text-3xl font-bold tracking-tight mb-4">Akshit</h2>
-                <p className="text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4 py-1">
-                  "A visionary full-stack developer passionate about AI and automation, building tools to empower creators."
+
+                <h2 className="text-3xl font-bold tracking-tight mb-4">
+                  Subodh Moudgil
+                </h2>
+
+                <p className="text-muted-foreground leading-relaxed">
+                  Founder and technology entrepreneur focused on building
+                  practical digital products that help businesses manage,
+                  automate, and scale their operations.
                 </p>
               </div>
             </motion.div>
 
-            {/* Contact Form */}
-            <motion.div variants={fadeInUp} className="bg-card border border-border/50 rounded-3xl p-8 md:p-12 shadow-sm h-full">
-              <h3 className="text-2xl font-bold mb-2">Get in touch</h3>
-              <p className="text-sm text-muted-foreground mb-6">Have questions? We'd love to hear from you.</p>
-              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-foreground">First Name</label>
-                    <Input placeholder="John" className="bg-background" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-foreground">Last Name</label>
-                    <Input placeholder="Doe" className="bg-background" />
-                  </div>
+            {/* Products Card */}
+            <motion.div
+              variants={fadeInUp}
+              className="bg-card border border-border/50 rounded-3xl p-8 md:p-12 shadow-xl shadow-black/5 h-full"
+            >
+              <div className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground mb-4">
+                Products & Platforms
+              </div>
+
+              <h2 className="text-3xl font-bold tracking-tight mb-6">
+                Built for modern businesses
+              </h2>
+
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">KlickCRM</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    A customer relationship management platform designed to
+                    help businesses organize leads, manage customer interactions,
+                    and streamline their sales processes.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-foreground">Email</label>
-                  <Input type="email" placeholder="john@example.com" className="bg-background" />
+
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">Tijori</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    An offline-first productivity and business tool designed
+                    to keep essential information and workflows accessible,
+                    even when an internet connection is unavailable.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-foreground">Message</label>
-                  <Textarea placeholder="How can we help?" className="bg-background resize-none h-24" />
-                </div>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                  Send Message <MessageSquare className="w-4 h-4 ml-2" />
-                </Button>
-              </form>
+              </div>
             </motion.div>
           </motion.div>
         </div>
       </section>
 
+
+
+
       <FAQSection />
 
-      {/* Fat Footer */}
       <footer className="border-t border-border/50 pt-20 pb-10 px-6 lg:px-12 bg-secondary/20">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
-            <div className="col-span-2 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <Ship className="w-6 h-6 text-primary" />
-                <span className="font-bold text-xl text-foreground">CruiseContent</span>
-              </div>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-sm">
-                The ultimate AI-powered social media automation suite. Built by creators, for creators.
-              </p>
-              <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"><FaXTwitter className="w-4 h-4" /></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"><FaGithub className="w-4 h-4" /></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"><FaLinkedin className="w-4 h-4" /></a>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Product</h4>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Integrations</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Changelog</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Company</h4>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#developer" className="hover:text-primary transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#developer" className="hover:text-primary transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Legal</h4>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Cookie Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <p>© 2026 SofricAI. All rights reserved.</p>
-            <p className="flex items-center gap-1">Designed with <HeartIcon className="w-4 h-4 text-red-500" /> by Akshit</p>
+          <div className="pt-8 border-t border-border/50 flex items-center justify-between w-full">
+            <p className="text-sm text-muted-foreground">
+              © 2026 SofricAI. All rights reserved.
+            </p>
+
+            <a
+              href="https://wa.me/917888327471"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Designed with
+              <HeartIcon className="w-4 h-4 text-red-500" />
+              by Akshit
+            </a>
           </div>
         </div>
       </footer>
-      
     </div>
   );
 }
@@ -526,5 +509,7 @@ function HeartIcon(props) {
     >
       <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
     </svg>
-  )
+  );
 }
+
+

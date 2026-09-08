@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model, authenticate
 from .models import ClientProfile, AdminProfile, AdminPermission, AdminAuditLog, AdminWorkspaceAssignment, AdminUserAssignment
 from workspaces.models import Workspace, WorkspaceMembership, WorkspaceRole
 from .jwt_utils import generate_tokens_for_user
-from .permissions import IsMasterAdmin
+from .permissions import IsMasterAdmin, IsAdminUser
 from .tasks import send_password_reset_email
 from .views import _set_refresh_cookie
 
@@ -289,9 +289,10 @@ from workspaces.software_registry import SOFTWARE_FEATURE_REGISTRY
 # Phase 4 Canonical Matrix
 MODULE_ACTION_MATRIX = {
     "DASHBOARD": ["VIEW"],
-    "USERS": ["VIEW", "CREATE", "UPDATE", "DELETE", "SUSPEND", "ACTIVATE"],
-    "WORKSPACES": ["VIEW", "CREATE", "UPDATE", "DELETE", "SUSPEND", "ACTIVATE"],
-    "MEMBERSHIPS": ["VIEW", "UPDATE", "DELETE"],
+    "USERS": ["VIEW", "CREATE", "UPDATE", "SUSPEND", "ACTIVATE", "DEACTIVATE"],
+    "WORKSPACES": ["VIEW", "CREATE", "UPDATE", "SUSPEND", "ACTIVATE", "ARCHIVE"],
+    "ROLES": ["VIEW", "CREATE", "UPDATE", "DELETE"],
+    "MEMBERSHIPS": ["VIEW", "ASSIGN", "REMOVE"],
     "PLANS": ["VIEW", "CREATE", "UPDATE", "DELETE", "MANAGE"],
     "SUBSCRIPTIONS": ["VIEW", "UPDATE", "CANCEL", "MANAGE"],
     "BILLING": ["VIEW", "MANAGE"],
@@ -752,11 +753,9 @@ class AdminConsoleUserDetailView(APIView):
 class AdminConsoleUserStatusView(APIView):
     """
     Phase 6 Admin Console specific user status endpoint.
-    PATCH: Requires MASTER or USERS/UPDATE permission.
+    PATCH: Requires MASTER or USERS granular status action (ACTIVATE, SUSPEND, DEACTIVATE).
     """
-    
-    def get_permissions(self):
-        return [HasAdminPermission(required_module="USERS", required_action="UPDATE")()]
+    permission_classes = [IsAdminUser]
 
     def patch(self, request, user_id):
         """
@@ -792,6 +791,25 @@ class AdminConsoleUserStatusView(APIView):
         if new_status not in valid_statuses:
             return Response({'error': f'Invalid status. Must be one of {valid_statuses}'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Map status transition to canonical required USERS action
+        status_action_map = {
+            'ACTIVE': 'ACTIVATE',
+            'SUSPENDED': 'SUSPEND',
+            'DEACTIVATED': 'DEACTIVATE'
+        }
+        required_action = status_action_map.get(new_status)
+        perm_checker = HasAdminPermission(required_module="USERS", required_action=required_action)()
+        if not perm_checker.has_permission(request, self):
+            # Check legacy UPDATE fallback if admin lacks granular status actions
+            admin_profile = getattr(request.user, 'admin_profile', None)
+            from .models import AdminPermission
+            user_perm = AdminPermission.objects.filter(admin_profile=admin_profile, module="USERS", is_active=True).first() if admin_profile else None
+            user_actions = set(user_perm.actions) if user_perm else set()
+            if not user_actions.intersection({'ACTIVATE', 'SUSPEND', 'DEACTIVATE'}) and 'UPDATE' in user_actions:
+                pass
+            else:
+                return Response({'error': f'You do not have permission to {required_action} users.'}, status=status.HTTP_403_FORBIDDEN)
+
         old_status = user.status
 
         if old_status != new_status:
@@ -825,13 +843,14 @@ class AdminConsoleUserStatusView(APIView):
 class AdminConsoleUserWorkspacesView(APIView):
     """
     Phase 6 Admin Console specific user workspace memberships list.
-    Requires MASTER or WORKSPACES/VIEW permission.
+    GET: Requires MASTER or MEMBERSHIPS/VIEW permission.
+    POST: Requires MASTER or MEMBERSHIPS/ASSIGN permission.
     """
     
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE")()]
-        return [HasAdminPermission(required_module="WORKSPACES", required_action="VIEW")()]
+            return [(HasAdminPermission(required_module="MEMBERSHIPS", required_action="ASSIGN") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
+        return [(HasAdminPermission(required_module="MEMBERSHIPS", required_action="VIEW") | HasAdminPermission(required_module="WORKSPACES", required_action="VIEW"))()]
 
     def get(self, request, user_id):
         scoped_users = get_admin_scoped_users(request.user)
@@ -960,11 +979,14 @@ class AdminConsoleUserWorkspacesView(APIView):
 class AdminConsoleUserWorkspaceDetailView(APIView):
     """
     Phase 6 Admin Console specific user workspace membership detail.
-    Requires MASTER or WORKSPACES/UPDATE permission.
+    PATCH: Requires MASTER or MEMBERSHIPS/ASSIGN permission.
+    DELETE: Requires MASTER or MEMBERSHIPS/REMOVE permission.
     """
     
     def get_permissions(self):
-        return [HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE")()]
+        if self.request.method == 'DELETE':
+            return [(HasAdminPermission(required_module="MEMBERSHIPS", required_action="REMOVE") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
+        return [(HasAdminPermission(required_module="MEMBERSHIPS", required_action="ASSIGN") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
 
     def patch(self, request, user_id, workspace_id):
         from workspaces.models import WorkspaceRole
@@ -1395,8 +1417,10 @@ class AdminConsoleWorkspaceManagementDetailView(APIView):
 class AdminConsoleWorkspaceStatusView(APIView):
     """
     Phase 8.2 Admin Console workspace status endpoint.
-    PATCH: Requires MASTER or WORKSPACES/SUSPEND or WORKSPACES/ACTIVATE permission depending on transition.
+    PATCH: Requires MASTER or WORKSPACES/SUSPEND, WORKSPACES/ACTIVATE, or WORKSPACES/ARCHIVE permission depending on transition.
     """
+    permission_classes = [IsAdminUser]
+
     def patch(self, request, workspace_id):
         admin_profile = getattr(request.user, 'admin_profile', None)
         if not admin_profile or not admin_profile.is_active:
@@ -1436,9 +1460,7 @@ class AdminConsoleWorkspaceStatusView(APIView):
             required_action = 'ACTIVATE'
             action_name = 'ACTIVATE_WORKSPACE'
         elif new_status == 'ARCHIVED':
-            # Archiving typically falls under SUSPEND or DELETE.
-            # We'll use DELETE permission or SUSPEND permission. Let's use SUSPEND for now.
-            required_action = 'SUSPEND' 
+            required_action = 'ARCHIVE'
             action_name = 'ARCHIVE_WORKSPACE'
 
         perm_checker = HasAdminPermission(required_module="WORKSPACES", required_action=required_action)()
@@ -1469,10 +1491,10 @@ class AdminConsoleWorkspaceStatusView(APIView):
 class AdminConsoleWorkspaceMembersView(APIView):
     """
     Phase 6 Admin Console workspace members list endpoint.
-    GET: Requires MASTER or WORKSPACES/VIEW permission.
+    GET: Requires MASTER or MEMBERSHIPS/VIEW permission.
     """
     def get_permissions(self):
-        return [HasAdminPermission(required_module="WORKSPACES", required_action="VIEW")()]
+        return [(HasAdminPermission(required_module="MEMBERSHIPS", required_action="VIEW") | HasAdminPermission(required_module="WORKSPACES", required_action="VIEW"))()]
 
     def get(self, request, workspace_id):
         admin_profile = getattr(request.user, 'admin_profile', None)
@@ -1568,13 +1590,13 @@ class AdminWorkspaceAvailablePermissionsView(APIView):
 class AdminWorkspaceRolesListView(APIView):
     """
     Stage 10.1 Admin Console Workspace Custom Roles listing and creation.
-    GET: Requires MASTER or WORKSPACES/VIEW permission (returns roles for a workspace).
-    POST: Requires MASTER or WORKSPACES/UPDATE permission (creates custom role with strictly validated permissions).
+    GET: Requires MASTER or ROLES/VIEW permission.
+    POST: Requires MASTER or ROLES/CREATE permission.
     """
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE")()]
-        return [HasAdminPermission(required_module="WORKSPACES", required_action="VIEW")()]
+            return [(HasAdminPermission(required_module="ROLES", required_action="CREATE") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
+        return [(HasAdminPermission(required_module="ROLES", required_action="VIEW") | HasAdminPermission(required_module="WORKSPACES", required_action="VIEW"))()]
 
     def get(self, request, workspace_id):
         from workspaces.models import WorkspaceRole
@@ -1669,14 +1691,16 @@ class AdminWorkspaceRolesListView(APIView):
 class AdminWorkspaceRoleDetailView(APIView):
     """
     Stage 10.1 Admin Console Workspace Custom Role detail, update, and deletion.
-    GET: Requires MASTER or WORKSPACES/VIEW.
-    PATCH: Requires MASTER or WORKSPACES/UPDATE.
-    DELETE: Requires MASTER or WORKSPACES/UPDATE.
+    GET: Requires MASTER or ROLES/VIEW.
+    PATCH/PUT: Requires MASTER or ROLES/UPDATE.
+    DELETE: Requires MASTER or ROLES/DELETE.
     """
     def get_permissions(self):
-        if self.request.method in ['PATCH', 'PUT', 'DELETE']:
-            return [HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE")()]
-        return [HasAdminPermission(required_module="WORKSPACES", required_action="VIEW")()]
+        if self.request.method == 'DELETE':
+            return [(HasAdminPermission(required_module="ROLES", required_action="DELETE") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
+        elif self.request.method in ['PATCH', 'PUT']:
+            return [(HasAdminPermission(required_module="ROLES", required_action="UPDATE") | HasAdminPermission(required_module="WORKSPACES", required_action="UPDATE"))()]
+        return [(HasAdminPermission(required_module="ROLES", required_action="VIEW") | HasAdminPermission(required_module="WORKSPACES", required_action="VIEW"))()]
 
     def get(self, request, workspace_id, role_id):
         from workspaces.models import WorkspaceRole
