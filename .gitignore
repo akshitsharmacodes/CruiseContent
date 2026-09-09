@@ -81,3 +81,9 @@ logs/
 # IDEs and Editors
 *.swp
 *.swo
+
+
+# Test files
+**/test_*.py
+**/*_test.py
+**/tests_*.py

@@ -108,17 +108,21 @@ export default function AdminAdmins() {
     queryFn: async () => {
       if (!selectedAdmin || selectedAdmin.admin_level === 'MASTER') return [];
       const response = await api.get(`/auth/admin/admins/${selectedAdmin.id}/permissions/`);
-      
-      const initPerms = {};
-      response.data.forEach(p => {
-        initPerms[p.module] = p.actions;
-      });
-      setEditedPermissions(initPerms);
-      
       return response.data;
     },
     enabled: !!selectedAdmin && selectedAdmin.admin_level !== 'MASTER' && isEditDialogOpen,
   });
+
+  // Synchronize permissions state with fetched/cached data
+  React.useEffect(() => {
+    if (adminPermissions && isEditDialogOpen) {
+      const initPerms = {};
+      adminPermissions.forEach(p => {
+        initPerms[p.module] = p.actions;
+      });
+      setEditedPermissions(initPerms);
+    }
+  }, [adminPermissions, isEditDialogOpen]);
 
   // Client-side filtering
   const filteredAdmins = useMemo(() => {
@@ -136,25 +140,8 @@ export default function AdminAdmins() {
   // Mutations
   const createAdminMutation = useMutation({
     mutationFn: async (payload) => api.post('/auth/admin/admins/', payload),
-    onSuccess: async (data) => {
-      toast.success('Admin identity created successfully.');
-      
-      // If permissions are edited, save them now
-      if (Object.keys(editedPermissions).length > 0) {
-        const payload = Object.entries(editedPermissions).map(([moduleName, actions]) => ({
-          module: moduleName,
-          actions: actions,
-          is_active: true
-        }));
-        
-        try {
-          await api.patch(`/auth/admin/admins/${data.data.id}/permissions/`, payload);
-          toast.success('Permissions assigned successfully.');
-        } catch (err) {
-          toast.error('Admin created, but failed to assign permissions. Please edit the admin to fix this.');
-        }
-      }
-      
+    onSuccess: async () => {
+      toast.success('Admin identity created successfully with assigned permissions.');
       queryClient.invalidateQueries({ queryKey: ['adminAdmins'] });
       setIsCreateDialogOpen(false);
       resetCreateForm();
@@ -245,7 +232,18 @@ export default function AdminAdmins() {
       toast.error('Email is required.');
       return;
     }
-    createAdminMutation.mutate(createForm);
+    const permissionsPayload = Object.entries(editedPermissions)
+      .filter(([_, actions]) => actions && actions.length > 0)
+      .map(([moduleName, actions]) => ({
+        module: moduleName,
+        actions: actions,
+        is_active: true
+      }));
+
+    createAdminMutation.mutate({
+      ...createForm,
+      permissions: permissionsPayload
+    });
   };
 
   const handleSavePermissions = () => {

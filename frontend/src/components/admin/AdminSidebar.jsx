@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   LayoutDashboard, 
@@ -126,20 +126,18 @@ export function AdminSidebar() {
             
             if (item.type === 'link') {
               return (
-                <Button
+                <Link
                   key={item.href}
-                  variant={isParentActive ? "secondary" : "ghost"}
+                  to={item.href}
                   className={cn(
+                    buttonVariants({ variant: isParentActive ? "secondary" : "ghost" }),
                     "w-full justify-start whitespace-nowrap",
                     isParentActive && "bg-muted font-medium"
                   )}
-                  asChild
                 >
-                  <Link to={item.href} className="flex items-center">
-                    <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                    <span className="truncate">{item.title}</span>
-                  </Link>
-                </Button>
+                  <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.title}</span>
+                </Link>
               )
             }
 
@@ -175,19 +173,17 @@ export function AdminSidebar() {
                         : location.pathname.startsWith(child.href)
                         
                       return (
-                        <Button
+                        <Link
                           key={child.label}
-                          variant={isChildActive ? "secondary" : "ghost"}
+                          to={child.href || item.href}
                           className={cn(
+                            buttonVariants({ variant: isChildActive ? "secondary" : "ghost", size: "sm" }),
                             "w-full justify-start h-8 text-sm whitespace-nowrap",
                             isChildActive && "bg-muted/50 font-medium"
                           )}
-                          asChild
                         >
-                          <Link to={child.href || item.href} className="flex items-center">
-                            <span className="truncate">{child.label}</span>
-                          </Link>
-                        </Button>
+                          <span className="truncate">{child.label}</span>
+                        </Link>
                       )
                     })}
                   </div>

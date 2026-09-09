@@ -98,10 +98,11 @@ export default function Navbar() {
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <motion.div 
+                      <motion.button 
+                        type="button"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="cursor-pointer shrink-0"
+                        className="cursor-pointer shrink-0 bg-transparent p-0 border-0 outline-none focus:outline-none"
                       >
                         <Avatar className="h-9 w-9 border-2 border-primary/20 hover:border-primary/50 transition-all">
                           <AvatarImage 
@@ -112,7 +113,7 @@ export default function Navbar() {
                             {user?.email?.charAt(0)?.toUpperCase() || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                      </motion.div>
+                      </motion.button>
                     }
                   />
                   <DropdownMenuContent align="end" className="w-48">

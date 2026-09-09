@@ -95,8 +95,13 @@ export default function AdminUsers() {
   const { data: workspacesData } = useQuery({
     queryKey: ['adminWorkspaces'],
     queryFn: async () => {
-      const res = await api.get('/auth/admin/workspaces/');
-      return res.data;
+      try {
+        const res = await api.get('/auth/admin/workspaces/');
+        return res.data;
+      } catch (err) {
+        if (err.response?.status === 403) return [];
+        throw err;
+      }
     },
     enabled: isCreateDialogOpen,
   });

@@ -18,8 +18,15 @@ TARGET_SOFTWARE_MODULES = [
     "SHARE_AND_CARE",
 ]
 
+INFRASTRUCTURE_MODULES = {
+    "WORKSPACES": ["VIEW", "CREATE", "UPDATE", "SUSPEND", "ACTIVATE", "ARCHIVE"],
+    "USERS": ["VIEW", "CREATE", "UPDATE", "SUSPEND", "ACTIVATE", "DEACTIVATE"],
+    "ROLES": ["VIEW", "CREATE", "UPDATE", "DELETE"],
+    "MEMBERSHIPS": ["VIEW", "ASSIGN", "REMOVE"],
+}
+
 class Command(BaseCommand):
-    help = "Idempotently provisions delegated software permissions for manager ADMIN Subodh"
+    help = "Idempotently provisions delegated infrastructure and software permissions for manager ADMIN Subodh"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -55,7 +62,28 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Verified ADMIN identity for {user.email} (Level: {admin_profile.admin_level}).")
 
-        # 1. Enumerate actions from canonical SOFTWARE_FEATURE_REGISTRY and provision AdminPermission
+        # 1. Provision canonical INFRASTRUCTURE_MODULES permissions
+        infra_provisioned = []
+        for mod_code, actions in INFRASTRUCTURE_MODULES.items():
+            sorted_actions = sorted(list(actions), key=lambda x: (0 if x == 'VIEW' else 1, x))
+
+            perm, created = AdminPermission.objects.get_or_create(
+                admin_profile=admin_profile,
+                module=mod_code,
+                defaults={'actions': sorted_actions, 'is_active': True}
+            )
+            if not created:
+                perm.actions = sorted_actions
+                perm.is_active = True
+                perm.save(update_fields=['actions', 'is_active', 'updated_at'])
+
+            infra_provisioned.append((mod_code, sorted_actions, "Created" if created else "Updated"))
+
+        self.stdout.write(self.style.SUCCESS(f"Successfully provisioned {len(infra_provisioned)} infrastructure module permissions for {user.email}:"))
+        for code, acts, status_str in infra_provisioned:
+            self.stdout.write(f"  - [{status_str}] {code}: {acts}")
+
+        # 2. Enumerate actions from canonical SOFTWARE_FEATURE_REGISTRY and provision AdminPermission
         provisioned = []
         for sw_code in TARGET_SOFTWARE_MODULES:
             if sw_code not in SOFTWARE_FEATURE_REGISTRY:
@@ -86,7 +114,7 @@ class Command(BaseCommand):
         for code, acts, status_str in provisioned:
             self.stdout.write(f"  - [{status_str}] {code}: {acts}")
 
-        # 2. Verify target testing workspace subscription and entitlements
+        # 3. Verify target testing workspace subscription and entitlements
         if workspace_name:
             target_ws = Workspace.objects.filter(name__iexact=workspace_name).first()
             if target_ws:
