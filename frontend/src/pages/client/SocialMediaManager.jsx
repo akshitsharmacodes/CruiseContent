@@ -707,7 +707,87 @@ export default function SocialMediaManager() {
         {/* 3. AI STUDIO / GENERATOR TAB */}
         {canCreatePosts && (
           <TabsContent value="ai-generator" className="space-y-4">
-            <Dashboard />
+            <Card className="border-border shadow-sm">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      <CardTitle className="text-xl">AI Studio & Content Generator</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Draft, tailor, and broadcast high-converting social media posts across all channels simultaneously.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setIsCreateOpen(true)} className="gap-1.5 self-start sm:self-auto">
+                    <Wand2 className="h-4 w-4" />
+                    Open Studio Creator
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-4">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <Wand2 className="h-4 w-4 text-primary" />
+                    <span>Quick Prompt Creator</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter what you want to announce or create. The AI will craft tailored posts customized to the tone and character limits of each connected platform.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Input
+                      placeholder="e.g. Announcing our new product feature with a limited-time 20% discount..."
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          setIsCreateOpen(true);
+                        }
+                      }}
+                      className="bg-background text-sm flex-1"
+                    />
+                    <Button
+                      onClick={() => setIsCreateOpen(true)}
+                      className="gap-2 shrink-0"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generate Content
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg border bg-card/40 space-y-1.5">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Share2 className="h-4 w-4 text-primary" />
+                      Multi-Channel Tailoring
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Adapts tone, hashtags, and formatting specifically for Twitter, LinkedIn, Instagram, and Facebook.
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card/40 space-y-1.5">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <SlidersHorizontal className="h-4 w-4 text-primary" />
+                      Tone Selection
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Switch between Engaging, Professional, Viral / Punchy, Promotional, and Casual tones seamlessly.
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card/40 space-y-1.5">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" />
+                      Instant Scheduling
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Schedule directly into your editorial calendar or publish instantly to all connected accounts.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
