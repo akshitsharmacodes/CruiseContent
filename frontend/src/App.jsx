@@ -64,15 +64,10 @@ function AnimatedRoutes() {
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/onboarding" element={<Onboarding />} />
           
+          {/* Main Workspace Dashboard */}
+          <Route path="/dashboard" element={<Dashboard />} />
+
           {/* 1. Social Media Manager */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <SoftwarePermissionRoute software="SOCIAL_MEDIA_MANAGER">
-                <SocialMediaManager />
-              </SoftwarePermissionRoute>
-            } 
-          />
           <Route 
             path="/client/social-manager" 
             element={

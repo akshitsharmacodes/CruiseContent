@@ -35,7 +35,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, RotateCw, ServerCrash, Save, ShieldAlert, Shield, Plus, Undo2, MoreHorizontal, UserCog, Ban, Key, Trash2, CheckCircle2, Eye } from 'lucide-react';
 
 export default function AdminAdmins() {
@@ -508,67 +507,65 @@ export default function AdminAdmins() {
 
       {/* ---------------- CREATE ADMIN DIALOG ---------------- */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-0">
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>Create Admin</DialogTitle>
             <DialogDescription>
               Create a new ADMIN and assign module permissions.
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 p-6 pt-2">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Identity</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>First Name</Label>
-                    <Input 
-                      value={createForm.first_name} 
-                      onChange={e => setCreateForm({...createForm, first_name: e.target.value})} 
-                      disabled={createAdminMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Last Name</Label>
-                    <Input 
-                      value={createForm.last_name} 
-                      onChange={e => setCreateForm({...createForm, last_name: e.target.value})} 
-                      disabled={createAdminMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email <span className="text-destructive">*</span></Label>
-                    <Input 
-                      type="email"
-                      value={createForm.email} 
-                      onChange={e => setCreateForm({...createForm, email: e.target.value})} 
-                      disabled={createAdminMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Password</Label>
-                    <Input 
-                      type="password"
-                      placeholder="Leave blank to send setup email"
-                      value={createForm.password} 
-                      onChange={e => setCreateForm({...createForm, password: e.target.value})} 
-                      disabled={createAdminMutation.isPending}
-                    />
-                  </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Identity</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>First Name</Label>
+                  <Input 
+                    value={createForm.first_name} 
+                    onChange={e => setCreateForm({...createForm, first_name: e.target.value})} 
+                    disabled={createAdminMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last Name</Label>
+                  <Input 
+                    value={createForm.last_name} 
+                    onChange={e => setCreateForm({...createForm, last_name: e.target.value})} 
+                    disabled={createAdminMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email <span className="text-destructive">*</span></Label>
+                  <Input 
+                    type="email"
+                    value={createForm.email} 
+                    onChange={e => setCreateForm({...createForm, email: e.target.value})} 
+                    disabled={createAdminMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input 
+                    type="password"
+                    placeholder="Leave blank to send setup email"
+                    value={createForm.password} 
+                    onChange={e => setCreateForm({...createForm, password: e.target.value})} 
+                    disabled={createAdminMutation.isPending}
+                  />
                 </div>
               </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Permissions</h3>
-                {renderPermissionsMatrix(false)}
-              </div>
             </div>
-          </ScrollArea>
+            
+            <Separator />
+            
+            <div>
+              <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Permissions</h3>
+              {renderPermissionsMatrix(false)}
+            </div>
+          </div>
 
-          <DialogFooter className="p-6 pt-2">
+          <DialogFooter className="p-6 pt-4 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
             <Button onClick={submitCreateAdmin} disabled={createAdminMutation.isPending}>
               {createAdminMutation.isPending && <RotateCw className="mr-2 h-4 w-4 animate-spin" />}
@@ -580,79 +577,77 @@ export default function AdminAdmins() {
 
       {/* ---------------- EDIT ADMIN DIALOG ---------------- */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-0">
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>Admin Details</DialogTitle>
             <DialogDescription>
               View identity and manage permissions for {selectedAdmin?.email}.
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 p-6 pt-2">
-            <div className="space-y-6">
-              {selectedAdmin && (
-                <>
-                  <div>
-                    <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Identity</h3>
-                    <div className="grid grid-cols-2 gap-4 rounded-md border p-4 bg-muted/20">
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Name</h5>
-                        <p className="text-sm font-medium">
-                          {(selectedAdmin.first_name || selectedAdmin.last_name) 
-                            ? `${selectedAdmin.first_name || ''} ${selectedAdmin.last_name || ''}`.trim() 
-                            : 'Unknown'}
-                        </p>
-                      </div>
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Email</h5>
-                        <p className="text-sm break-all">{selectedAdmin.email}</p>
-                      </div>
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Level</h5>
-                        {selectedAdmin.admin_level === 'MASTER' ? (
-                          <Badge className="bg-primary">MASTER</Badge>
-                        ) : (
-                          <Badge variant="outline">ADMIN</Badge>
-                        )}
-                      </div>
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Status</h5>
-                        {selectedAdmin.is_active ? (
-                          <Badge variant="default" className="bg-green-600">Active</Badge>
-                        ) : (
-                          <div className="flex flex-col">
-                            <Badge variant="secondary" className="w-fit">Disabled</Badge>
-                            {selectedAdmin.disabled_reason && (
-                              <span className="text-xs text-muted-foreground mt-1">Reason: {selectedAdmin.disabled_reason}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Created At</h5>
-                        <p className="text-sm">{selectedAdmin.created_at ? new Date(selectedAdmin.created_at).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h5 className="text-xs text-muted-foreground mb-1">Last Login</h5>
-                        <p className="text-sm">{selectedAdmin.last_login ? new Date(selectedAdmin.last_login).toLocaleString() : 'Never'}</p>
-                      </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+            {selectedAdmin && (
+              <>
+                <div>
+                  <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-3">Identity</h3>
+                  <div className="grid grid-cols-2 gap-4 rounded-md border p-4 bg-muted/20">
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Name</h5>
+                      <p className="text-sm font-medium">
+                        {(selectedAdmin.first_name || selectedAdmin.last_name) 
+                          ? `${selectedAdmin.first_name || ''} ${selectedAdmin.last_name || ''}`.trim() 
+                          : 'Unknown'}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Email</h5>
+                      <p className="text-sm break-all">{selectedAdmin.email}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Level</h5>
+                      {selectedAdmin.admin_level === 'MASTER' ? (
+                        <Badge className="bg-primary">MASTER</Badge>
+                      ) : (
+                        <Badge variant="outline">ADMIN</Badge>
+                      )}
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Status</h5>
+                      {selectedAdmin.is_active ? (
+                        <Badge variant="default" className="bg-green-600">Active</Badge>
+                      ) : (
+                        <div className="flex flex-col">
+                          <Badge variant="secondary" className="w-fit">Disabled</Badge>
+                          {selectedAdmin.disabled_reason && (
+                            <span className="text-xs text-muted-foreground mt-1">Reason: {selectedAdmin.disabled_reason}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Created At</h5>
+                      <p className="text-sm">{selectedAdmin.created_at ? new Date(selectedAdmin.created_at).toLocaleString() : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-muted-foreground mb-1">Last Login</h5>
+                      <p className="text-sm">{selectedAdmin.last_login ? new Date(selectedAdmin.last_login).toLocaleString() : 'Never'}</p>
                     </div>
                   </div>
+                </div>
 
-                  <Separator />
+                <Separator />
 
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground">Permissions</h3>
-                    </div>
-                    {renderPermissionsMatrix(selectedAdmin.admin_level === 'MASTER')}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground">Permissions</h3>
                   </div>
-                </>
-              )}
-            </div>
-          </ScrollArea>
+                  {renderPermissionsMatrix(selectedAdmin.admin_level === 'MASTER')}
+                </div>
+              </>
+            )}
+          </div>
           
-          <DialogFooter className="p-6 pt-2">
+          <DialogFooter className="p-6 pt-4 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Close</Button>
             {selectedAdmin?.admin_level !== 'MASTER' && (
               <Button onClick={handleSavePermissions} disabled={savePermissionsMutation.isPending || isLoadingPermissions}>

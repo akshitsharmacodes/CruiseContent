@@ -118,6 +118,42 @@ export default function ClientSidebar() {
 
         {/* Navigation List */}
         <div className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+          {/* Main Workspace Dashboard Link */}
+          {(() => {
+            const isDashboardActive = location.pathname === '/dashboard';
+            const dashboardLink = (
+              <NavLink
+                to="/dashboard"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group relative",
+                  isDashboardActive
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  isCollapsed && "justify-center px-0"
+                )}
+              >
+                <LayoutDashboard className={cn("h-4 w-4 shrink-0", isDashboardActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
+                {!isCollapsed && (
+                  <span className="truncate">Dashboard</span>
+                )}
+              </NavLink>
+            );
+
+            if (isCollapsed) {
+              return (
+                <Tooltip key="dashboard">
+                  <TooltipTrigger asChild>
+                    {dashboardLink}
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="flex items-center gap-2">
+                    <span>Dashboard</span>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+            return dashboardLink;
+          })()}
+
           {visibleSoftware.length === 0 ? (
             <div className="p-3 text-center text-xs text-muted-foreground">
               {!isCollapsed && (
