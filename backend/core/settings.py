@@ -171,13 +171,20 @@ WSGI_APPLICATION = 'core.wsgi.application'
 _database_url = os.environ.get('DATABASE_URL')
 
 if _database_url:
+    _db_config = dj_database_url.parse(
+        _database_url,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+    # Ensure Neon hostname is used as HOST (via TLS SNI) and raw IP is not forced via hostaddr
+    _db_config.setdefault('OPTIONS', {})
+    _db_config['OPTIONS'].pop('hostaddr', None)
+    _db_config['OPTIONS']['sslmode'] = 'require'
+    if not _db_config.get('PORT'):
+        _db_config['PORT'] = '5432'
+
     DATABASES = {
-        'default': dj_database_url.config(
-            default=_database_url,
-            conn_max_age=600,
-            conn_health_checks=True,
-            ssl_require=not DEBUG,
-        )
+        'default': _db_config
     }
 else:
     DATABASES = {

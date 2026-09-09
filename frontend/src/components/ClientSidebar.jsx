@@ -1,214 +1,243 @@
-import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Share2,
-  MessageSquare,
-  Webhook,
-  PhoneCall,
-  Bot,
-  FileSearch,
-  HeartHandshake,
   LayoutDashboard,
   ChevronLeft,
   ChevronRight,
-  Shield,
-  Layers,
-  Sparkles
+  LogOut,
+  Shield
 } from 'lucide-react';
+import { SOFTWARE_DEFINITIONS } from '@/lib/softwareDefinitions';
 
-const SOFTWARE_DEFINITIONS = [
-  {
-    code: 'SOCIAL_MEDIA_MANAGER',
-    name: 'Social Media Manager',
-    path: '/client/social-manager',
-    icon: Share2,
-    badge: 'Social'
-  },
-  {
-    code: 'WHATSAPP_CAMPAIGN',
-    name: 'WhatsApp Campaign',
-    path: '/client/whatsapp',
-    icon: MessageSquare,
-    badge: 'Campaigns'
-  },
-  {
-    code: 'WHATSHOOK',
-    name: 'WhatsHook',
-    path: '/client/whatshook',
-    icon: Webhook,
-    badge: 'Webhooks'
-  },
-  {
-    code: 'AI_CALLING',
-    name: 'AI Calling',
-    path: '/client/ai-calling',
-    icon: PhoneCall,
-    badge: 'Voice'
-  },
-  {
-    code: 'CHATBOT',
-    name: 'ChatBot',
-    path: '/client/chatbot',
-    icon: Bot,
-    badge: 'Automation'
-  },
-  {
-    code: 'DATEXT',
-    name: 'Datext',
-    path: '/client/datext',
-    icon: FileSearch,
-    badge: 'Extraction'
-  },
-  {
-    code: 'SHARE_AND_CARE',
-    name: 'Share & Care',
-    path: '/client/share-care',
-    icon: HeartHandshake,
-    badge: 'Community'
-  }
-];
-
-export default function ClientSidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+export default function ClientSidebar({
+  isCollapsed = false,
+  setIsCollapsed,
+  onNavigate
+}) {
   const location = useLocation();
-  const { userSoftwareModules, userCustomRole, adminLevel } = useAuth();
+  const {
+    currentWorkspaceName,
+    role,
+    userCustomRole,
+    adminLevel,
+    hasSoftwareAccess,
+    isLoadingPermissions,
+    logout
+  } = useAuth();
 
-  // Filter software definitions by user's effective entitlement + role access (MASTER has all)
-  const visibleSoftware = SOFTWARE_DEFINITIONS.filter(sw =>
-    adminLevel === 'MASTER' || userSoftwareModules.includes(sw.code)
-  );
+  // Entitled software filtered dynamically via existing authorization system
+  const visibleSoftware = SOFTWARE_DEFINITIONS.filter(sw => hasSoftwareAccess(sw.code));
 
   return (
     <TooltipProvider delayDuration={150}>
-      <aside
-        className={cn(
-          "hidden md:flex flex-col border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 select-none z-30",
-          isCollapsed ? "w-16" : "w-64"
-        )}
-      >
+      <div className="flex h-full flex-col gap-4 py-4 select-none">
         {/* Workspace Role Header */}
-        <div className="p-3 border-b flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2 overflow-hidden">
-              <Shield className="h-4 w-4 text-primary shrink-0" />
-              <div className="truncate">
-                <p className="text-xs font-semibold truncate">
-                  {userCustomRole?.name || (adminLevel === 'MASTER' ? "Master Admin" : "Member")}
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  {visibleSoftware.length} Software Entitled
-                </p>
-              </div>
+        {!isCollapsed ? (
+          <div className="flex items-center justify-between px-6 py-2 border-b pb-3">
+            <div className="overflow-hidden min-w-0 pr-2">
+              <h2 className="text-lg font-semibold tracking-tight truncate">
+                {currentWorkspaceName || "Workspace"}
+              </h2>
+              <p className="text-xs text-muted-foreground truncate">
+                {userCustomRole?.name || (adminLevel === 'MASTER' ? "Master Admin" : (role || "Member"))}
+              </p>
             </div>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="h-7 w-7 ml-auto text-muted-foreground hover:text-foreground"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
-        </div>
+            {setIsCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center p-2 border-b pb-3">
+            {setIsCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                title="Expand sidebar"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Navigation List */}
-        <div className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
-          {/* Main Workspace Dashboard Link */}
-          {(() => {
-            const isDashboardActive = location.pathname === '/dashboard';
-            const dashboardLink = (
-              <NavLink
-                to="/dashboard"
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group relative",
-                  isDashboardActive
-                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  isCollapsed && "justify-center px-0"
-                )}
-              >
-                <LayoutDashboard className={cn("h-4 w-4 shrink-0", isDashboardActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-                {!isCollapsed && (
-                  <span className="truncate">Dashboard</span>
-                )}
-              </NavLink>
-            );
-
-            if (isCollapsed) {
-              return (
-                <Tooltip key="dashboard">
-                  <TooltipTrigger asChild>
-                    {dashboardLink}
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="flex items-center gap-2">
-                    <span>Dashboard</span>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-            return dashboardLink;
-          })()}
-
-          {visibleSoftware.length === 0 ? (
-            <div className="p-3 text-center text-xs text-muted-foreground">
-              {!isCollapsed && (
-                <p>No software products entitled to your role.</p>
-              )}
-            </div>
-          ) : (
-            visibleSoftware.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
-
-              const navLink = (
-                <NavLink
-                  key={item.code}
-                  to={item.path}
+        <ScrollArea className="flex-1 px-4">
+          <div className="space-y-1">
+            {/* 1. Main Client Dashboard */}
+            {(() => {
+              const isDashboardActive = location.pathname === '/dashboard';
+              const dashboardItem = (
+                <Link
+                  to="/dashboard"
+                  onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group relative",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    buttonVariants({ variant: isDashboardActive ? "secondary" : "ghost" }),
+                    "w-full justify-start whitespace-nowrap",
+                    isDashboardActive && "bg-muted font-medium",
                     isCollapsed && "justify-center px-0"
                   )}
                 >
-                  <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-                  {!isCollapsed && (
-                    <span className="truncate">{item.name}</span>
-                  )}
-                </NavLink>
+                  <LayoutDashboard className={cn("h-4 w-4 shrink-0", !isCollapsed && "mr-2")} />
+                  {!isCollapsed && <span className="truncate">Dashboard</span>}
+                </Link>
               );
 
               if (isCollapsed) {
                 return (
-                  <Tooltip key={item.code}>
-                    <TooltipTrigger asChild>
-                      {navLink}
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="flex items-center gap-2">
-                      <span>{item.name}</span>
+                  <Tooltip key="dashboard">
+                    <TooltipTrigger asChild>{dashboardItem}</TooltipTrigger>
+                    <TooltipContent side="right">
+                      <span>Dashboard</span>
                     </TooltipContent>
                   </Tooltip>
                 );
               }
 
-              return navLink;
-            })
-          )}
-        </div>
+              return dashboardItem;
+            })()}
 
-        {/* Footer info */}
-        {!isCollapsed && (
-          <div className="p-3 border-t text-[11px] text-muted-foreground text-center">
-            <span>SofricAI Platform</span>
+            {/* Software Section Divider */}
+            {!isCollapsed && (
+              <div className="pt-3 pb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Software Products
+              </div>
+            )}
+
+            {/* Loading State: avoid authorization flash when permissions are loading */}
+            {isLoadingPermissions ? (
+              <div className="space-y-2 pt-1 px-1">
+                <Skeleton className="h-9 w-full rounded-md" />
+                <Skeleton className="h-9 w-full rounded-md" />
+                <Skeleton className="h-9 w-full rounded-md" />
+              </div>
+            ) : visibleSoftware.length === 0 ? (
+              !isCollapsed && (
+                <div className="p-3 text-center text-xs text-muted-foreground border border-dashed rounded-lg mt-2 mx-1">
+                  <p>No software products entitled to your role in this workspace.</p>
+                </div>
+              )
+            ) : (
+              visibleSoftware.map((item) => {
+                const isItemActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                const softwareItem = (
+                  <Link
+                    key={item.code}
+                    to={item.path}
+                    onClick={onNavigate}
+                    className={cn(
+                      buttonVariants({ variant: isItemActive ? "secondary" : "ghost" }),
+                      "w-full justify-start whitespace-nowrap",
+                      isItemActive && "bg-muted font-medium",
+                      isCollapsed && "justify-center px-0"
+                    )}
+                  >
+                    <item.icon className={cn("h-4 w-4 shrink-0", !isCollapsed && "mr-2")} />
+                    {!isCollapsed && <span className="truncate">{item.name}</span>}
+                  </Link>
+                );
+
+                if (isCollapsed) {
+                  return (
+                    <Tooltip key={item.code}>
+                      <TooltipTrigger asChild>{softwareItem}</TooltipTrigger>
+                      <TooltipContent side="right">
+                        <span>{item.name}</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return softwareItem;
+              })
+            )}
           </div>
-        )}
-      </aside>
+        </ScrollArea>
+
+        {/* Footer Area */}
+        <div className="mt-auto px-4 border-t pt-3 space-y-1">
+          {/* Quick link to Admin Console if user has Master or Admin role */}
+          {(adminLevel === 'MASTER' || adminLevel === 'ADMIN') && (
+            (() => {
+              const adminLinkItem = (
+                <Link
+                  to="/admin"
+                  onClick={onNavigate}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "sm" }),
+                    "w-full justify-start text-xs text-muted-foreground hover:text-foreground whitespace-nowrap",
+                    isCollapsed && "justify-center px-0"
+                  )}
+                  title="Admin Console"
+                >
+                  <Shield className={cn("h-3.5 w-3.5 shrink-0 text-primary", !isCollapsed && "mr-2")} />
+                  {!isCollapsed && <span className="truncate">Admin Console</span>}
+                </Link>
+              );
+
+              if (isCollapsed) {
+                return (
+                  <Tooltip key="admin-console">
+                    <TooltipTrigger asChild>{adminLinkItem}</TooltipTrigger>
+                    <TooltipContent side="right">
+                      <span>Admin Console</span>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return adminLinkItem;
+            })()
+          )}
+
+          {/* Logout Button */}
+          {(() => {
+            const logoutItem = (
+              <Button
+                variant="ghost"
+                size={isCollapsed ? "icon" : "default"}
+                className={cn(
+                  "w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10 whitespace-nowrap",
+                  isCollapsed && "justify-center px-0"
+                )}
+                onClick={logout}
+                title="Logout"
+              >
+                <LogOut className={cn("h-4 w-4 shrink-0", !isCollapsed && "mr-2")} />
+                {!isCollapsed && <span className="truncate">Logout</span>}
+              </Button>
+            );
+
+            if (isCollapsed) {
+              return (
+                <Tooltip key="logout">
+                  <TooltipTrigger asChild>{logoutItem}</TooltipTrigger>
+                  <TooltipContent side="right">
+                    <span>Logout</span>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return logoutItem;
+          })()}
+        </div>
+      </div>
     </TooltipProvider>
   );
 }

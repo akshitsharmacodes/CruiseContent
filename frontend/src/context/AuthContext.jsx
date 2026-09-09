@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [userPermissions, setUserPermissions] = useState([]);
   const [userSoftwareModules, setUserSoftwareModules] = useState([]);
   const [userCustomRole, setUserCustomRole] = useState(null);
+  const [currentWorkspaceName, setCurrentWorkspaceName] = useState(null);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
 
   // In-memory access token
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }) => {
       setUserPermissions([]);
       setUserSoftwareModules([]);
       setUserCustomRole(null);
+      setCurrentWorkspaceName(null);
       return;
     }
     setIsLoadingPermissions(true);
@@ -42,16 +44,19 @@ export const AuthProvider = ({ children }) => {
         setUserPermissions(data.permissions || []);
         setUserSoftwareModules(data.software_modules || []);
         setUserCustomRole(data.custom_role || null);
+        setCurrentWorkspaceName(data.workspace_name || null);
       } else {
         setUserPermissions([]);
         setUserSoftwareModules([]);
         setUserCustomRole(null);
+        setCurrentWorkspaceName(null);
       }
     } catch (err) {
       console.error("Failed to fetch user permissions", err);
       setUserPermissions([]);
       setUserSoftwareModules([]);
       setUserCustomRole(null);
+      setCurrentWorkspaceName(null);
     } finally {
       setIsLoadingPermissions(false);
     }
@@ -73,6 +78,14 @@ export const AuthProvider = ({ children }) => {
     if (accessToken) {
       fetchUserPermissions(accessToken);
     }
+
+    const handleWorkspaceUpdated = () => {
+      if (accessToken) {
+        fetchUserPermissions(accessToken);
+      }
+    };
+    window.addEventListener('workspace-updated', handleWorkspaceUpdated);
+    return () => window.removeEventListener('workspace-updated', handleWorkspaceUpdated);
   }, [accessToken, currentWorkspaceId, fetchUserPermissions]);
 
   const refreshAccessToken = async () => {
@@ -103,6 +116,7 @@ export const AuthProvider = ({ children }) => {
         setRole(null);
         setTier(null);
         setCurrentWorkspaceId(null);
+        setCurrentWorkspaceName(null);
         setAdminLevel(null);
         setAdminProfileId(null);
         setUserPermissions([]);
@@ -160,6 +174,7 @@ export const AuthProvider = ({ children }) => {
       setRole(null);
       setTier(null);
       setCurrentWorkspaceId(null);
+      setCurrentWorkspaceName(null);
       setAdminLevel(null);
       setAdminProfileId(null);
       setUserPermissions([]);
@@ -206,6 +221,7 @@ export const AuthProvider = ({ children }) => {
       role,
       tier,
       currentWorkspaceId,
+      currentWorkspaceName,
       adminLevel,
       adminProfileId,
       accessToken,

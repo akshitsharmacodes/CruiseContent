@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Layers, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useOnboardingCheck } from '../hooks/useOnboardingCheck';
@@ -18,12 +18,15 @@ import ScheduledQueueDrawer from '../components/features/ScheduledQueueDrawer';
 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SOFTWARE_DEFINITIONS } from '@/lib/softwareDefinitions';
 
 export default function Dashboard() {
   useOnboardingCheck();
   const navigate = useNavigate();
-  const { can } = useAuth();
+  const { can, userSoftwareModules, adminLevel, isLoadingPermissions, currentWorkspaceName } = useAuth();
   const canCreatePost = can('SOCIAL_MEDIA_MANAGER', 'POSTS', 'CREATE');
+  const hasSocialMedia = adminLevel === 'MASTER' || userSoftwareModules.includes('SOCIAL_MEDIA_MANAGER');
+  const hasAnySoftware = adminLevel === 'MASTER' || userSoftwareModules.length > 0;
 
   const [inputData, setInputData] = useState({ text: '', url: '', image: null });
 
@@ -67,14 +70,20 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 lg:p-12">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-foreground mb-2">Create Post</h1>
-            <p className="text-muted-foreground">Draft and deploy content across your social channels.</p>
-          </div>
+    <div className="space-y-8">
+      {/* Dashboard Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {hasSocialMedia ? "Create Post" : (currentWorkspaceName ? `${currentWorkspaceName} Dashboard` : "Workspace Dashboard")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {hasSocialMedia 
+              ? "Draft and deploy content across your social channels."
+              : "Welcome to your SofricAI workspace client portal."}
+          </p>
+        </div>
+        {hasSocialMedia && (
           <div className="flex gap-3">
             <ScheduledQueueDrawer 
               trigger={<Button variant="secondary">Scheduled Queue</Button>} 
@@ -83,15 +92,105 @@ export default function Dashboard() {
               Manage Platforms
             </Button>
           </div>
-        </div>
+        )}
+      </div>
 
-        <Card className="shadow-none border-border">
+      {/* 1. Loading Skeleton */}
+      {isLoadingPermissions && (
+        <div className="space-y-4 animate-pulse">
+          <Skeleton className="h-48 w-full rounded-2xl" />
+        </div>
+      )}
+
+      {/* 2. Empty State: Zero Software Entitlements */}
+      {!isLoadingPermissions && !hasAnySoftware && (
+        <Card className="shadow-none border-border bg-card/60">
           <CardHeader>
-            <CardTitle className="text-lg">Source Material</CardTitle>
-            <CardDescription>What should we base the post on?</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Welcome to Your Workspace</CardTitle>
+                <CardDescription>
+                  No software products are currently entitled or assigned to your role in this workspace.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6 mb-8">
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your workspace is active, but does not have any software products enabled yet. Contact your workspace administrator to activate software subscriptions (such as Social Media Manager, WhatsApp Campaigns, AI Calling, or ChatBots) or to assign custom roles.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button variant="outline" onClick={() => navigate('/pricing')}>
+                View Available Plans
+              </Button>
+              {(adminLevel === 'MASTER' || adminLevel === 'ADMIN') && (
+                <Button variant="secondary" onClick={() => navigate('/admin')}>
+                  Open Admin Console
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 3. Software Hub: Entitled Software other than Social Media Manager */}
+      {!isLoadingPermissions && hasAnySoftware && !hasSocialMedia && (
+        <Card className="shadow-none border-border bg-card/60">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                <Layers className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Entitled Software Hub</CardTitle>
+                <CardDescription>
+                  You have access to the following software applications in this workspace:
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {userSoftwareModules.map((modCode) => {
+                const swInfo = SOFTWARE_DEFINITIONS.find(s => s.code === modCode);
+                if (!swInfo) return null;
+                const Icon = swInfo.icon;
+                return (
+                  <Button
+                    key={modCode}
+                    variant="outline"
+                    className="justify-between h-14 px-4 text-left hover:bg-muted group"
+                    onClick={() => navigate(swInfo.path)}
+                  >
+                    <div className="flex items-center gap-3 truncate">
+                      <Icon className="h-5 w-5 text-primary shrink-0" />
+                      <div className="truncate">
+                        <div className="font-semibold text-sm">{swInfo.name}</div>
+                        <div className="text-xs text-muted-foreground">{swInfo.badge}</div>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-transform group-hover:translate-x-0.5" />
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 4. Social Media Manager Generator */}
+      {hasSocialMedia && (
+        <>
+          <Card className="shadow-none border-border">
+            <CardHeader>
+              <CardTitle className="text-lg">Source Material</CardTitle>
+              <CardDescription>What should we base the post on?</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6 mb-8">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Text Thoughts</label>
                 <Textarea 
@@ -259,7 +358,8 @@ export default function Dashboard() {
             </ScrollArea>
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+);
 }
