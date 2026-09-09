@@ -7,7 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  LayoutDashboard,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -79,38 +78,6 @@ export default function ClientSidebar({
         {/* Navigation List */}
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-1">
-            {/* 1. Main Client Dashboard */}
-            {(() => {
-              const isDashboardActive = location.pathname === '/dashboard';
-              const dashboardItem = (
-                <Link
-                  to="/dashboard"
-                  onClick={onNavigate}
-                  className={cn(
-                    buttonVariants({ variant: isDashboardActive ? "secondary" : "ghost" }),
-                    "w-full justify-start whitespace-nowrap",
-                    isDashboardActive && "bg-muted font-medium",
-                    isCollapsed && "justify-center px-0"
-                  )}
-                >
-                  <LayoutDashboard className={cn("h-4 w-4 shrink-0", !isCollapsed && "mr-2")} />
-                  {!isCollapsed && <span className="truncate">Dashboard</span>}
-                </Link>
-              );
-
-              if (isCollapsed) {
-                return (
-                  <Tooltip key="dashboard">
-                    <TooltipTrigger asChild>{dashboardItem}</TooltipTrigger>
-                    <TooltipContent side="right">
-                      <span>Dashboard</span>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-
-              return dashboardItem;
-            })()}
 
             {/* Software Section Divider */}
             {!isCollapsed && (

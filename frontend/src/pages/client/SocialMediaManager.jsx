@@ -79,7 +79,7 @@ import {
   CalendarClock,
   Wand2
 } from 'lucide-react';
-import Dashboard from '@/pages/Dashboard';
+
 
 const AVAILABLE_PLATFORMS = [
   { id: 'TWITTER', label: 'Twitter (X)', charLimit: 280 },
